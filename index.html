@@ -35,7 +35,7 @@
                     <div class="flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         <div class="ml-4">
-                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản cá nhân- Hoàng Tấn Thiên</h1>
+                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản - Hoàng Tấn Thiên</h1>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -207,7 +207,7 @@
         // --- Debugging timeout ---
         setTimeout(() => {
             const authButton = document.getElementById('authorize_button');
-            if (authButton.style.display !== 'none' && authButton.style.visibility === 'hidden' && !gapi.client.getToken()) {
+            if (authButton.classList.contains('hidden') && document.getElementById('signout_button').classList.contains('hidden')) {
                 console.error("Authentication buttons failed to initialize after 10 seconds.");
                 authStatusDiv.innerHTML = `<p class="text-red-500 text-xs font-semibold">Lỗi khởi tạo đăng nhập. Vui lòng kiểm tra Console (F12) và thử tải lại trang.</p>`;
             }
@@ -425,8 +425,11 @@
         const API_KEY = 'AIzaSyAn17SI2Xwx1ek-2xPw3IilNxPKG6O7nGg';
         const CLIENT_ID = '1882095959563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
         
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
+        const DISCOVERY_DOCS = [
+            'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+            'https://www.googleapis.com/discovery/v1/apis/oauth2/v2/rest'
+        ];
 
         let tokenClient;
         let gapiInited = false;
@@ -435,7 +438,7 @@
         function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 
         async function initializeGapiClient() {
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
             gapiInited = true; maybeEnableButtons();
         }
 
@@ -444,7 +447,7 @@
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
-                    callback: handleTokenResponse, // Use a dedicated callback function
+                    callback: handleTokenResponse,
                 });
                 gisInited = true;
                 maybeEnableButtons();
@@ -455,8 +458,9 @@
 
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
-                document.getElementById('authorize_button').style.visibility = 'visible';
-                document.getElementById('authorize_button').onclick = handleAuthClick;
+                const authButton = document.getElementById('authorize_button');
+                authButton.classList.remove('hidden');
+                authButton.onclick = handleAuthClick;
                 document.getElementById('signout_button').onclick = handleSignoutClick;
             }
         }
@@ -489,22 +493,42 @@
         }
         
         function updateUIWithToken(isLoggedIn) {
-            const authButton = document.getElementById('authorize_button'), signoutButton = document.getElementById('signout_button'), userNameEl = document.getElementById('user-name');
+            const authButton = document.getElementById('authorize_button');
+            const signoutButton = document.getElementById('signout_button');
+            const userNameEl = document.getElementById('user-name');
             if (isLoggedIn) {
-                authButton.style.display = 'none'; signoutButton.style.display = 'block';
-                gapi.client.oauth2.userinfo.get().then(response => {
-                    userNameEl.textContent = `Xin chào, ${response.result.name}`;
+                authButton.classList.add('hidden');
+                signoutButton.classList.remove('hidden');
+                gapi.client.oauth2.userinfo.get().then(res => {
+                    userNameEl.textContent = `Xin chào, ${res.result.name || res.result.email}`;
+                }).catch(err => {
+                    console.error("Error fetching user info:", err);
+                    userNameEl.textContent = 'Đã đăng nhập';
                 });
             } else {
-                authButton.style.display = 'block'; signoutButton.style.display = 'none'; userNameEl.textContent = '';
+                authButton.classList.remove('hidden');
+                signoutButton.classList.add('hidden');
+                userNameEl.textContent = '';
             }
         }
 
         async function handleFileUploadProcess(files, docName) {
             if (!gapi.client.getToken()) {
-                alert("Bạn cần đăng nhập Google trước khi tải file!");
-                handleAuthClick();
-                throw new Error("Chưa đăng nhập Google");
+                // Try to get token silently first, if fails, then prompt
+                await new Promise((resolve, reject) => {
+                  tokenClient.callback = (resp) => resp.error ? reject(resp.error) : resolve(resp);
+                  tokenClient.requestAccessToken({ prompt: '' });
+                }).catch(async () => {
+                    await new Promise((resolve, reject) => {
+                        tokenClient.callback = (resp) => resp.error ? reject(resp.error) : resolve(resp);
+                        tokenClient.requestAccessToken({ prompt: 'consent' });
+                    });
+                });
+            }
+
+            // Re-check token after attempting to get it
+            if (!gapi.client.getToken()) {
+                 throw new Error("Không thể lấy quyền truy cập Google. Vui lòng thử lại.");
             }
 
             const schoolYear = document.getElementById('school-year-select').value;
@@ -523,8 +547,9 @@
         }
 
         async function findOrCreateFolder(folderName, parentId = 'root', returnFullObject = false) {
+            const nameEsc = folderName.replace(/'/g, "\\'");
             const response = await gapi.client.drive.files.list({
-                q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${parentId}' in parents and trashed=false`,
+                q: `mimeType='application/vnd.google-apps.folder' and name='${nameEsc}' and '${parentId}' in parents and trashed=false`,
                 fields: 'files(id, name, webViewLink)',
             });
 
@@ -544,18 +569,25 @@
         function uploadFileToFolder(file, folderId) {
              return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.readAsBinaryString(file); // Use readAsBinaryString
+                reader.readAsArrayBuffer(file);
                 reader.onload = () => {
-                    const fileContent = reader.result;
+                    const arr = new Uint8Array(reader.result);
+                    let binary = '';
+                    for (let i = 0; i < arr.byteLength; i++) {
+                        binary += String.fromCharCode(arr[i]);
+                    }
+                    const base64Data = btoa(binary);
+
                     const boundary = '-------314159265358979323846';
-                    const delimiter = "\r\n--" + boundary + "\r\n";
+                    const delimiter = "\r-
+-" + boundary + "\r\n";
                     const close_delim = "\r\n--" + boundary + "--";
                     const metadata = { name: file.name, mimeType: file.type || 'application/octet-stream', parents: [folderId] };
                     
                     const multipartRequestBody =
                         delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) +
                         delimiter + 'Content-Type: ' + (file.type || 'application/octet-stream') + '\r\n' +
-                        'Content-Transfer-Encoding: base64\r\n\r\n' + btoa(fileContent) + close_delim;
+                        'Content-Transfer-Encoding: base64\r\n\r\n' + base64Data + close_delim;
                     
                     const request = gapi.client.request({
                         path: '/upload/drive/v3/files', method: 'POST',
