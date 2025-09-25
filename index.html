@@ -3,349 +3,497 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Quản lý Tài liệu</title>
+    <title>Quản lý Văn bản Nội bộ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* CSS Reset & Basic Styling */
-        :root {
-            --primary-color: #4285F4;
-            --danger-color: #DB4437;
-            --light-gray: #f5f5f5;
-            --dark-gray: #757575;
-            --border-radius: 8px;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--light-gray);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background-color: white;
-            padding: 25px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        /* Header */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        header h1 {
-            font-size: 24px;
-            margin: 0;
-            color: #333;
-        }
-
-        /* Authentication Section */
-        #auth-container { text-align: center; padding: 40px 0; }
-        .auth-button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: var(--border-radius);
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        #sign-in-btn { background-color: var(--primary-color); color: white; }
-        #sign-in-btn:hover { background-color: #3367D6; }
-        #sign-out-btn { background-color: var(--danger-color); color: white; }
-        #sign-out-btn:hover { background-color: #C5372C; }
-
-        /* App Section */
-        #app-container { display: none; } /* Hidden by default */
-        #user-info { font-size: 14px; color: var(--dark-gray); }
-
-        /* Form */
-        #doc-form {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        #doc-input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: var(--border-radius);
-            font-size: 16px;
-        }
-        #doc-form button {
-            padding: 10px 20px;
-            border: none;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: var(--border-radius);
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        /* Document List */
-        #doc-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #doc-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            transition: background-color 0.2s ease;
-        }
-        #doc-list li:hover { background-color: #fafafa; }
-        #doc-list li.completed span {
-            text-decoration: line-through;
-            color: var(--dark-gray);
-        }
-        #doc-list li .actions button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            margin-left: 10px;
-            font-size: 18px;
-            padding: 5px;
-        }
-        .delete-btn { color: var(--danger-color); }
-        .toggle-btn { color: #4CAF50; }
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dark ::-webkit-scrollbar-track { background: #2d3748; }
+        .dark ::-webkit-scrollbar-thumb { background: #718096; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <div class="container">
-        <header>
-            <h1>Quản lý Tài liệu</h1>
-            <div id="user-controls"></div>
+    <div id="app" class="flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        <div class="ml-4">
+                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản - Hoàng Tấn Thiên</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                         <div id="auth-status" class="flex items-center space-x-2">
+                             <button id="authorize_button" class="flex items-center bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-600">
+                                <svg class="w-4 h-4 mr-2" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+                                 Đăng nhập Google
+                             </button>
+                             <button id="signout_button" class="hidden bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-300">Đăng xuất</button>
+                             <p id="user-name" class="text-sm font-medium"></p>
+                         </div>
+                        <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+                            <i data-lucide="sun" class="h-5 w-5 block dark:hidden"></i>
+                            <i data-lucide="moon" class="h-5 w-5 hidden dark:block"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </header>
 
-        <div id="auth-container">
-            <p>Vui lòng đăng nhập để tiếp tục</p>
-            <button id="sign-in-btn" class="auth-button">Đăng nhập với Google</button>
-        </div>
-
-        <main id="app-container">
-            <p id="user-info"></p>
-            <form id="doc-form">
-                <input type="text" id="doc-input" placeholder="Nhập tên tài liệu..." required>
-                <button type="submit">Thêm</button>
-            </form>
-            <ul id="doc-list">
-                </ul>
+        <!-- Main content -->
+        <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                 <!-- Controls -->
+                <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
+                    <div class="w-full md:w-auto flex items-center space-x-2">
+                        <div class="flex-grow">
+                            <label for="school-year-select" class="sr-only">Năm học</label>
+                            <select id="school-year-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
+                        </div>
+                        <button id="manage-years-btn" title="Quản lý năm học" class="p-2.5 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-600 flex-shrink-0">
+                            <i data-lucide="settings-2" class="w-5 h-5"></i>
+                        </button>
+                        <div class="relative flex-grow">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i data-lucide="search" class="w-5 h-5 text-gray-400"></i>
+                            </div>
+                            <input type="search" id="search-input" class="w-full p-2.5 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Tìm kiếm văn bản...">
+                        </div>
+                    </div>
+                    <button id="add-document-btn" class="w-full md:w-auto flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
+                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                        Thêm Văn bản Mới
+                    </button>
+                </div>
+                <!-- Table -->
+                <div class="overflow-x-auto relative">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th scope="col" class="py-3 px-6 rounded-l-lg">STT</th>
+                                <th scope="col" class="py-3 px-6">Tên Văn bản / Trích yếu</th>
+                                <th scope="col" class="py-3 px-6">Số/Ký hiệu</th>
+                                <th scope="col" class="py-3 px-6">Ngày Ban hành</th>
+                                <th scope="col" class="py-3 px-6">Loại VB</th>
+                                <th scope="col" class="py-3 px-6">Trạng thái</th>
+                                <th scope="col" class="py-3 px-6 rounded-r-lg">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="document-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
         </main>
     </div>
+    
+    <!-- Modals -->
+    <div id="document-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4">
+            <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Thêm Văn bản Mới</h3>
+                <button id="close-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="document-form" class="space-y-4">
+                    <div>
+                        <label for="doc-name" class="block mb-2 text-sm font-medium">Tên văn bản / Trích yếu</label>
+                        <input type="text" id="doc-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600" required>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="doc-id" class="block mb-2 text-sm font-medium">Số/Ký hiệu</label>
+                            <input type="text" id="doc-id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="doc-date" class="block mb-2 text-sm font-medium">Ngày ban hành</label>
+                            <input type="date" id="doc-date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="doc-type" class="block mb-2 text-sm font-medium">Loại văn bản</label>
+                            <select id="doc-type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600">
+                                <option>Kế hoạch</option><option>Báo cáo</option><option>Quyết định</option><option>Thông báo</option><option>Công văn</option><option>Thông tư</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="doc-status" class="block mb-2 text-sm font-medium">Trạng thái</label>
+                            <select id="doc-status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600">
+                                <option>Chờ xử lý</option><option>Đã xử lý</option><option>Lưu trữ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="file_input" class="block mb-2 text-sm font-medium">Tải file lên (có thể chọn nhiều file)</label>
+                        <input class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600" id="file_input" type="file" multiple required>
+                    </div>
+                </form>
+            </div>
+            <div class="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-600">
+                <button id="save-btn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Lưu lại</button>
+                <button id="cancel-modal-btn" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5">Hủy bỏ</button>
+            </div>
+        </div>
+    </div>
 
-    <script type="module">
-        // Import functions from the Firebase SDK
-        // NOTE: In a real project, you'd use npm/yarn. Here, we use the CDN version.
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import {
-            getAuth,
-            onAuthStateChanged,
-            GoogleAuthProvider,
-            signInWithPopup,
-            signOut
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import {
-            getFirestore,
-            collection,
-            addDoc,
-            query,
-            where,
-            orderBy,
-            onSnapshot,
-            doc,
-            updateDoc,
-            deleteDoc,
-            serverTimestamp
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    <div id="school-year-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+             <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
+                <h3 class="text-xl font-semibold">Quản lý Năm học</h3>
+                <button id="close-year-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 rounded-lg text-sm p-1.5"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label for="new-year-input" class="block mb-2 text-sm font-medium">Thêm năm học mới</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="new-year-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="VD: Năm học 2026-2027">
+                        <button id="add-year-btn" class="text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm px-5 py-2.5">Thêm</button>
+                    </div>
+                </div>
+                <div class="max-h-60 overflow-y-auto"><ul id="year-list" class="space-y-2"></ul></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    // --- APP LOGIC ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const GAPI_CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
+        const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
+        const REDIRECT_URI = `${window.location.origin}/popup.html`;
 
-        // === 1. INITIALIZATION ===
-        // Your web app's Firebase configuration is provided by the environment
-        const firebaseConfig = __firebase_config;
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        let currentUser = null; // Variable to hold current user info
-
-        // === 2. DOM ELEMENT REFERENCES ===
-        const authContainer = document.getElementById('auth-container');
-        const appContainer = document.getElementById('app-container');
-        const signInBtn = document.getElementById('sign-in-btn');
-        const userControls = document.getElementById('user-controls');
-        const userInfoDisplay = document.getElementById('user-info');
-        const docForm = document.getElementById('doc-form');
-        const docInput = document.getElementById('doc-input');
-        const docList = document.getElementById('doc-list');
+        let googleAuthToken = null;
         
-        // === 3. AUTHENTICATION LOGIC ===
-        const provider = new GoogleAuthProvider();
+        const ui = {
+            authBtn: document.getElementById('authorize_button'),
+            signOutBtn: document.getElementById('signout_button'),
+            userName: document.getElementById('user-name'),
+            themeToggle: document.getElementById('theme-toggle'),
+            addDocBtn: document.getElementById('add-document-btn'),
+            schoolYearSelect: document.getElementById('school-year-select'),
+            yearList: document.getElementById('year-list'),
+            newYearInput: document.getElementById('new-year-input'),
+            addYearBtn: document.getElementById('add-year-btn'),
+            manageYearsBtn: document.getElementById('manage-years-btn'),
+            docModal: document.getElementById('document-modal'),
+            yearModal: document.getElementById('school-year-modal'),
+            closeDocModalBtn: document.getElementById('close-modal-btn'),
+            cancelDocModalBtn: document.getElementById('cancel-modal-btn'),
+            closeYearModalBtn: document.getElementById('close-year-modal-btn'),
+            docForm: document.getElementById('document-form'),
+            saveBtn: document.getElementById('save-btn'),
+            docTableBody: document.getElementById('document-table-body'),
+            searchInput: document.getElementById('search-input'),
+        };
 
-        // Sign in function
-        signInBtn.onclick = () => signInWithPopup(auth, provider);
+        const storageKeys = {
+            years: 'schoolYearsList_v3',
+            docs: 'documentsList_v3',
+            token: 'google_auth_token_v3'
+        };
 
-        // Listen for authentication state changes
-        onAuthStateChanged(auth, user => {
-            currentUser = user;
-            if (user) {
-                // User is signed in
-                authContainer.style.display = 'none';
-                appContainer.style.display = 'block';
+        function updateAuthUI(isLoggedIn) {
+            ui.authBtn.classList.toggle('hidden', isLoggedIn);
+            ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
+            if (!isLoggedIn) ui.userName.textContent = '';
+        }
 
-                userInfoDisplay.textContent = `Xin chào, ${user.displayName || user.email}`;
-                userControls.innerHTML = `<button id="sign-out-btn" class="auth-button">Đăng xuất</button>`;
-                document.getElementById('sign-out-btn').onclick = () => signOut(auth);
-                
-                // Fetch user's documents
-                fetchDocuments();
-            } else {
-                // User is signed out
-                authContainer.style.display = 'block';
-                appContainer.style.display = 'none';
-                userControls.innerHTML = '';
-                docList.innerHTML = ''; // Clear the list on sign out
+        async function getUserProfile() {
+            if (!googleAuthToken) return;
+            try {
+                const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { 'Authorization': `Bearer ${googleAuthToken.access_token}` }
+                });
+                if (!response.ok) throw new Error('Failed to fetch user profile.');
+                const profile = await response.json();
+                ui.userName.textContent = `Xin chào, ${profile.name || profile.email}`;
+            } catch (error) {
+                console.error("Error fetching user profile:", error);
+                ui.userName.textContent = 'Đã đăng nhập';
             }
+        }
+
+        function handleAuthClick() {
+            const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+            const params = {
+                'client_id': GAPI_CLIENT_ID,
+                'redirect_uri': REDIRECT_URI,
+                'response_type': 'token',
+                'scope': GAPI_SCOPES,
+                'include_granted_scopes': 'true',
+            };
+            const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
+            window.open(url, 'oauthPopup', 'width=500,height=600');
+        }
+
+        function handleSignOutClick() {
+            if (googleAuthToken) {
+                fetch(`https://oauth2.googleapis.com/revoke?token=${googleAuthToken.access_token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                }).finally(() => {
+                    googleAuthToken = null;
+                    localStorage.removeItem(storageKeys.token);
+                    updateAuthUI(false);
+                });
+            }
+        }
+        
+        function checkTokenOnLoad() {
+            const storedToken = localStorage.getItem(storageKeys.token);
+            if (storedToken) {
+                googleAuthToken = JSON.parse(storedToken);
+                updateAuthUI(true);
+                getUserProfile();
+            } else {
+                updateAuthUI(false);
+            }
+        }
+        
+        window.addEventListener('message', (event) => {
+             if (event.origin !== window.location.origin) return;
+             if (event.data?.type === 'oauth_callback') {
+                const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
+                const token = Object.fromEntries(params.entries());
+                if (token.access_token) {
+                    googleAuthToken = token;
+                    localStorage.setItem(storageKeys.token, JSON.stringify(token));
+                    updateAuthUI(true);
+                    getUserProfile();
+                }
+             }
         });
 
-        // === 4. FIRESTORE (DATABASE) LOGIC ===
-        let unsubscribe = null; // To stop listening for changes when user logs out
+        // --- UI & Local Data Logic ---
+        function getYears() {
+            const years = localStorage.getItem(storageKeys.years);
+            if (years) return JSON.parse(years);
+            const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025", "Năm học 2023-2024"];
+            localStorage.setItem(storageKeys.years, JSON.stringify(defaultYears));
+            return defaultYears;
+        }
 
-        // C: Create a new document
-        const addDocument = async (title) => {
-            if (!currentUser) return; // Guard clause
-            try {
-                await addDoc(collection(db, "documents"), {
-                    title: title,
-                    completed: false,
-                    createdAt: serverTimestamp(),
-                    uid: currentUser.uid // IMPORTANT: Link document to the user
-                });
-            } catch (e) {
-                console.error("Error adding document: ", e);
-            }
-        };
+        function saveYears(years) {
+            localStorage.setItem(storageKeys.years, JSON.stringify(years));
+            renderYears();
+        }
 
-        // R: Read documents in real-time
-        const fetchDocuments = () => {
-            if (!currentUser) return;
-            
-            // If already listening, stop the old listener first
-            if (unsubscribe) unsubscribe();
-
-            // Create a query to get only the documents for the current user
-            // This is the key to data security and separation!
-            const q = query(
-                collection(db, "documents"), 
-                where("uid", "==", currentUser.uid),
-                orderBy("createdAt", "desc")
-            );
-
-            // onSnapshot listens for real-time updates
-            unsubscribe = onSnapshot(q, (querySnapshot) => {
-                const documents = [];
-                querySnapshot.forEach((doc) => {
-                    documents.push({ id: doc.id, ...doc.data() });
-                });
-                renderDocuments(documents);
+        function renderYears() {
+            const years = getYears();
+            ui.schoolYearSelect.innerHTML = '';
+            ui.yearList.innerHTML = '';
+            years.forEach(year => {
+                ui.schoolYearSelect.add(new Option(year, year));
+                ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
             });
-        };
+            lucide.createIcons();
+            renderDocuments();
+        }
+
+        function getDocuments() { return JSON.parse(localStorage.getItem(storageKeys.docs)) || []; }
+        function saveDocuments(docs) { localStorage.setItem(storageKeys.docs, JSON.stringify(docs)); renderDocuments(); }
         
-        // U: Update a document (toggle completed status)
-        const toggleDocumentStatus = async (id, currentStatus) => {
-            const docRef = doc(db, "documents", id);
-            await updateDoc(docRef, {
-                completed: !currentStatus
-            });
-        };
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
 
-        // D: Delete a document
-        const deleteDocument = async (id) => {
-            const docRef = doc(db, "documents", id);
-            await deleteDoc(docRef);
-        };
+        function renderDocuments() {
+            const allDocs = getDocuments();
+            const selectedYear = ui.schoolYearSelect.value;
+            const searchTerm = ui.searchInput.value.toLowerCase();
+            let filteredDocs = allDocs.filter(doc => doc.schoolYear === selectedYear);
+            if (searchTerm) {
+                filteredDocs = filteredDocs.filter(doc => doc.name.toLowerCase().includes(searchTerm) || doc.id.toLowerCase().includes(searchTerm));
+            }
 
-        // === 5. UI RENDERING & EVENT LISTENERS ===
-
-        // Render the list of documents to the screen
-        const renderDocuments = (documents) => {
-            docList.innerHTML = ''; // Clear current list
-            if (documents.length === 0) {
-                docList.innerHTML = '<li><p>Chưa có tài liệu nào. Hãy thêm một tài liệu mới!</p></li>';
+            ui.docTableBody.innerHTML = '';
+            if (filteredDocs.length === 0) {
+                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu...</td></tr>`;
                 return;
             }
-            documents.forEach(doc => {
-                const li = document.createElement('li');
-                li.className = doc.completed ? 'completed' : '';
-                li.setAttribute('data-id', doc.id);
-
-                const span = document.createElement('span');
-                span.textContent = doc.title;
-
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'actions';
-
-                const toggleBtn = document.createElement('button');
-                toggleBtn.textContent = doc.completed ? '↩️' : '✔️';
-                toggleBtn.className = 'toggle-btn';
-                toggleBtn.title = doc.completed ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu đã hoàn thành';
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '🗑️';
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.title = 'Xóa tài liệu';
-
-                actionsDiv.appendChild(toggleBtn);
-                actionsDiv.appendChild(deleteBtn);
-                
-                li.appendChild(span);
-                li.appendChild(actionsDiv);
-                
-                docList.appendChild(li);
+            filteredDocs.forEach((doc, index) => {
+                ui.docTableBody.innerHTML += `
+                    <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+                        <td class="py-4 px-6">${index + 1}</td>
+                        <th class="py-4 px-6 font-medium text-gray-900 dark:text-white">${doc.name}</th>
+                        <td class="py-4 px-6">${doc.id}</td>
+                        <td class="py-4 px-6">${formatDate(doc.date)}</td>
+                        <td class="py-4 px-6">${doc.type}</td>
+                        <td class="py-4 px-6">${doc.status}</td>
+                        <td class="py-4 px-6 flex items-center space-x-2">
+                            <a href="${doc.folderUrl || '#'}" target="_blank" class="p-2 text-gray-500 rounded-lg hover:bg-gray-100" title="Mở thư mục"><i data-lucide="folder" class="w-4 h-4"></i></a>
+                            <button data-doc-id="${doc.docId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-red-100" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </td>
+                    </tr>`;
             });
+            lucide.createIcons();
+        }
+
+        function slugify(text) {
+            const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;';
+            const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------';
+            const p = new RegExp(a.split('').join('|'), 'g');
+            return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+        }
+
+        // --- Event Listeners ---
+        ui.authBtn.addEventListener('click', handleAuthClick);
+        ui.signOutBtn.addEventListener('click', handleSignOutClick);
+        ui.themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+        ui.addDocBtn.addEventListener('click', () => ui.docModal.classList.remove('hidden'));
+        ui.closeDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
+        ui.cancelDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
+        ui.manageYearsBtn.addEventListener('click', () => ui.yearModal.classList.remove('hidden'));
+        ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
+        
+        ui.addYearBtn.addEventListener('click', () => {
+            const newYear = ui.newYearInput.value.trim();
+            if (newYear) {
+                const years = getYears();
+                if (!years.includes(newYear)) saveYears([newYear, ...years]);
+                else alert('Năm học này đã tồn tại!');
+                ui.newYearInput.value = '';
+            }
+        });
+
+        ui.yearList.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.delete-year-btn');
+            if (deleteBtn && confirm(`Bạn có chắc muốn xóa "${deleteBtn.dataset.year}"?`)) {
+                saveYears(getYears().filter(y => y !== deleteBtn.dataset.year));
+            }
+        });
+        
+        ui.docTableBody.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.delete-doc-btn');
+            if (deleteBtn && confirm('Bạn có chắc muốn xóa văn bản này?')) {
+                saveDocuments(getDocuments().filter(d => d.docId !== deleteBtn.dataset.docId));
+            }
+        });
+        
+        ui.schoolYearSelect.addEventListener('change', renderDocuments);
+        ui.searchInput.addEventListener('input', renderDocuments);
+        
+        ui.saveBtn.addEventListener('click', async () => {
+            if (!ui.docForm.checkValidity()) {
+                ui.docForm.reportValidity();
+                return;
+            }
+            if (!googleAuthToken) {
+                alert('Vui lòng đăng nhập Google trước khi thực hiện.');
+                handleAuthClick();
+                return;
+            }
+
+            ui.saveBtn.disabled = true;
+            ui.saveBtn.textContent = 'Đang xử lý...';
+            
+            try {
+                const folderUrl = await uploadManager.startUpload();
+                const allDocs = getDocuments();
+                allDocs.unshift({
+                    docId: Date.now().toString(),
+                    schoolYear: ui.schoolYearSelect.value,
+                    name: document.getElementById('doc-name').value.trim(),
+                    id: document.getElementById('doc-id').value.trim(),
+                    date: document.getElementById('doc-date').value,
+                    type: document.getElementById('doc-type').value,
+                    status: document.getElementById('doc-status').value,
+                    folderUrl: folderUrl
+                });
+                saveDocuments(allDocs);
+                alert('Tải lên và lưu thông tin thành công!');
+                ui.docModal.classList.add('hidden');
+                ui.docForm.reset();
+            } catch (error) {
+                console.error("Upload process failed:", error);
+                alert(`Đã xảy ra lỗi: ${error.message}`);
+            } finally {
+                ui.saveBtn.disabled = false;
+                ui.saveBtn.textContent = 'Lưu lại';
+            }
+        });
+        
+        // --- Google Drive API Logic ---
+        const uploadManager = {
+            async apiCall(path, method = 'POST', body = null, headers = {}) {
+                const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
+                const response = await fetch(`https://www.googleapis.com/${path}`, {
+                    method,
+                    headers: { ...defaultHeaders, ...headers },
+                    body
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error.message || 'Lỗi không xác định từ Google API.');
+                }
+                return response.json();
+            },
+            async findOrCreateFolder(name, parentId = 'root') {
+                const nameEsc = name.replace(/'/g, "\\'");
+                const getPath = `drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${nameEsc}' and '${parentId}' in parents and trashed=false&fields=files(id,webViewLink)`;
+                const data = await this.apiCall(getPath, 'GET');
+                if (data.files.length > 0) return data.files[0];
+                
+                const postPath = 'drive/v3/files?fields=id,webViewLink';
+                return this.apiCall(postPath, 'POST', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), {'Content-Type': 'application/json'});
+            },
+            async uploadFile(file, parentId) {
+                const metadata = { name: file.name, parents: [parentId] };
+                const boundary = '-------314159265358979323846';
+                const delimiter = `\r\n--${boundary}\r\n`;
+                const closeDelim = `\r\n--${boundary}--`;
+
+                const buf = await file.arrayBuffer();
+                const bytes = new Uint8Array(buf);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                const base64Data = btoa(binary);
+
+                const body =
+                    delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter + `Content-Type: ${file.type || 'application/octet-stream'}\r\n` +
+                    'Content-Transfer-Encoding: base64\r\n\r\n' +
+                    base64Data +
+                    closeDelim;
+
+                const path = 'upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+                const headers = { 'Content-Type': `multipart/related; boundary=${boundary}` };
+                return this.apiCall(path, 'POST', body, headers);
+            },
+            async startUpload() {
+                const docName = document.getElementById('doc-name').value.trim();
+                const schoolYear = ui.schoolYearSelect.value;
+                const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+                const docFolderName = slugify(docName);
+
+                const qlvbFolder = await this.findOrCreateFolder('QLVB');
+                const yearFolder = await this.findOrCreateFolder(schoolYear, qlvbFolder.id);
+                const monthFolder = await this.findOrCreateFolder(currentMonth, yearFolder.id);
+                const docFolder = await this.findOrCreateFolder(docFolderName, monthFolder.id);
+                
+                const files = document.getElementById('file_input').files;
+                for (const file of files) {
+                    await this.uploadFile(file, docFolder.id);
+                }
+                return docFolder.webViewLink;
+            }
         };
 
-        // Event listener for the form submission
-        docForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const title = docInput.value.trim();
-            if (title) {
-                addDocument(title);
-                docInput.value = '';
-            }
-        });
-
-        // Event listener for clicks on the document list (for update/delete)
-        docList.addEventListener('click', (e) => {
-            const target = e.target;
-            const li = target.closest('li');
-            if (!li) return;
-            
-            const docId = li.dataset.id;
-            const isDeleteBtn = target.classList.contains('delete-btn');
-            const isToggleBtn = target.classList.contains('toggle-btn');
-
-            if (isDeleteBtn) {
-                if (confirm('Bạn có chắc muốn xóa tài liệu này?')) {
-                    deleteDocument(docId);
-                }
-            }
-            
-            if (isToggleBtn) {
-                const isCompleted = li.classList.contains('completed');
-                toggleDocumentStatus(docId, isCompleted);
-            }
-        });
-
+        // --- Initial Load ---
+        checkTokenOnLoad();
+        renderYears();
+    });
     </script>
 </body>
 </html>
+
