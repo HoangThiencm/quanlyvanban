@@ -35,7 +35,7 @@
                     <div class="flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         <div class="ml-4">
-                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản</h1>
+                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản - Hoàng Tấn Thiên</h1>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -100,9 +100,6 @@
                         </thead>
                         <tbody id="document-table-body">
                             <!-- Data will be populated here -->
-                            <tr id="no-data-row">
-                                <td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu...</td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -121,7 +118,7 @@
             </div>
             <div class="p-6 space-y-6">
                  <!-- Form content remains the same -->
-                 <form action="#">
+                 <form id="document-form" action="#">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="md:col-span-2">
                             <label for="doc-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Tên văn bản / Trích yếu</label>
@@ -191,57 +188,53 @@
     document.addEventListener('DOMContentLoaded', function() {
         lucide.createIcons();
 
-        // Theme Toggle
+        // --- Constants and Global Variables ---
         const themeToggle = document.getElementById('theme-toggle');
-        themeToggle.addEventListener('click', () => { document.documentElement.classList.toggle('dark'); });
-
-        // School Year Management
         const schoolYearSelect = document.getElementById('school-year-select');
         const yearList = document.getElementById('year-list');
         const newYearInput = document.getElementById('new-year-input');
         const addYearBtn = document.getElementById('add-year-btn');
-        const SCHOOL_YEARS_KEY = 'schoolYearsList';
+        const docModal = document.getElementById('document-modal');
+        const yearModal = document.getElementById('school-year-modal');
+        const documentTableBody = document.getElementById('document-table-body');
+        const documentForm = document.getElementById('document-form');
 
+        const SCHOOL_YEARS_KEY = 'schoolYearsList';
+        const DOCUMENTS_KEY = 'documentsList';
+
+        // --- Theme Management ---
+        themeToggle.addEventListener('click', () => { document.documentElement.classList.toggle('dark'); });
+
+        // --- School Year Management ---
         function getSchoolYears() {
             const years = localStorage.getItem(SCHOOL_YEARS_KEY);
-            if (years) {
-                return JSON.parse(years);
-            } else {
-                // Default values if nothing is stored
-                const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025", "Năm học 2023-2024"];
-                localStorage.setItem(SCHOOL_YEARS_KEY, JSON.stringify(defaultYears));
-                return defaultYears;
-            }
+            if (years) return JSON.parse(years);
+            const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025", "Năm học 2023-2024"];
+            localStorage.setItem(SCHOOL_YEARS_KEY, JSON.stringify(defaultYears));
+            return defaultYears;
         }
 
         function saveSchoolYears(years) {
             localStorage.setItem(SCHOOL_YEARS_KEY, JSON.stringify(years));
-            loadSchoolYears();
+            renderSchoolYears();
         }
 
-        function loadSchoolYears() {
+        function renderSchoolYears() {
             const years = getSchoolYears();
             schoolYearSelect.innerHTML = '';
             yearList.innerHTML = '';
             years.forEach(year => {
-                // Populate dropdown
                 const option = document.createElement('option');
-                option.value = year;
-                option.textContent = year;
+                option.value = year; option.textContent = year;
                 schoolYearSelect.appendChild(option);
 
-                // Populate management list
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md';
-                li.innerHTML = `
-                    <span class="text-sm">${year}</span>
-                    <button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 dark:hover:bg-red-900">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                `;
+                li.innerHTML = `<span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 dark:hover:bg-red-900"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
                 yearList.appendChild(li);
             });
-            lucide.createIcons(); // Re-render icons
+            lucide.createIcons();
+            renderDocuments(); // Re-render documents when years change
         }
 
         addYearBtn.addEventListener('click', () => {
@@ -249,12 +242,10 @@
             if (newYear) {
                 const years = getSchoolYears();
                 if (!years.includes(newYear)) {
-                    years.unshift(newYear); // Add to the beginning
+                    years.unshift(newYear);
                     saveSchoolYears(years);
                     newYearInput.value = '';
-                } else {
-                    alert('Năm học này đã tồn tại!');
-                }
+                } else { alert('Năm học này đã tồn tại!'); }
             }
         });
 
@@ -270,17 +261,72 @@
             }
         });
 
-        // Modal Controls
-        const docModal = document.getElementById('document-modal');
-        const yearModal = document.getElementById('school-year-modal');
+        // --- Document Management ---
+        function getDocuments() {
+            const docs = localStorage.getItem(DOCUMENTS_KEY);
+            return docs ? JSON.parse(docs) : [];
+        }
+
+        function saveDocuments(docs) {
+            localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(docs));
+            renderDocuments();
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function renderDocuments() {
+            const docs = getDocuments();
+            const selectedYear = schoolYearSelect.value;
+            const filteredDocs = docs.filter(doc => doc.schoolYear === selectedYear);
+
+            documentTableBody.innerHTML = ''; // Clear table
+            if (filteredDocs.length === 0) {
+                documentTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu cho năm học này...</td></tr>`;
+                return;
+            }
+
+            filteredDocs.forEach((doc, index) => {
+                const row = document.createElement('tr');
+                row.className = 'bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600';
+                row.innerHTML = `
+                    <td class="py-4 px-6">${index + 1}</td>
+                    <th scope="row" class="py-4 px-6 font-medium text-gray-900 dark:text-white whitespace-nowrap">${doc.name}</th>
+                    <td class="py-4 px-6">${doc.id}</td>
+                    <td class="py-4 px-6">${formatDate(doc.date)}</td>
+                    <td class="py-4 px-6">${doc.type}</td>
+                    <td class="py-4 px-6">${doc.status}</td>
+                    <td class="py-4 px-6 flex items-center space-x-2">
+                        <a href="${doc.folderUrl || '#'}" target="_blank" class="p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Mở thư mục trên Drive"><i data-lucide="folder" class="w-4 h-4"></i></a>
+                        <button data-doc-id="${doc.docId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-red-100 dark:hover:bg-red-900" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                `;
+                documentTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+        
+        documentTableBody.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.delete-doc-btn');
+            if (deleteBtn) {
+                const docIdToDelete = deleteBtn.dataset.docId;
+                if(confirm('Bạn có chắc chắn muốn xóa văn bản này? Thao tác này chỉ xóa thông tin trên web, không xóa file trên Google Drive.')) {
+                    let docs = getDocuments();
+                    docs = docs.filter(d => d.docId !== docIdToDelete);
+                    saveDocuments(docs);
+                }
+            }
+        });
+
+
+        // --- Modal Controls & Form Handling ---
         const openDocModal = () => docModal.classList.remove('hidden');
         const closeDocModal = () => {
             docModal.classList.add('hidden');
-            // Reset form on close
-            document.getElementById('doc-name').value = '';
-            document.getElementById('doc-id').value = '';
-            document.getElementById('doc-date').value = '';
-            document.getElementById('file_input').value = '';
+            documentForm.reset();
         }
         const openYearModal = () => yearModal.classList.remove('hidden');
         const closeYearModal = () => yearModal.classList.add('hidden');
@@ -297,54 +343,58 @@
         document.getElementById('save-btn').addEventListener('click', async () => {
             const files = document.getElementById('file_input').files;
             const docName = document.getElementById('doc-name').value.trim();
-
-            if (files.length === 0) {
-                alert('Vui lòng chọn ít nhất một file để tải lên.');
-                return;
-            }
-            if (!docName) {
-                alert('Vui lòng nhập "Tên văn bản / Trích yếu". Tên này sẽ được dùng để tạo thư mục chứa file.');
-                return;
-            }
+            const docId = document.getElementById('doc-id').value.trim();
+            const docDate = document.getElementById('doc-date').value;
+            const docType = document.getElementById('doc-type').value;
+            const docStatus = document.getElementById('doc-status').value;
+            const selectedSchoolYear = schoolYearSelect.value;
+            
+            if (files.length === 0) { alert('Vui lòng chọn ít nhất một file để tải lên.'); return; }
+            if (!docName) { alert('Vui lòng nhập "Tên văn bản / Trích yếu".'); return; }
+            if (!selectedSchoolYear) { alert('Vui lòng chọn một năm học.'); return; }
             
             alert(`Bắt đầu quá trình tải lên ${files.length} file. Vui lòng chờ...`);
-            let successCount = 0;
-            let errorCount = 0;
             
-            for (const file of files) {
-                try {
-                    await handleSingleFileUpload(file, docName);
-                    successCount++;
-                } catch (error) {
-                    console.error(`Lỗi khi tải file ${file.name}:`, error);
-                    errorCount++;
+            try {
+                const docFolderUrl = await handleFileUploadProcess(files, docName);
+                if (docFolderUrl) {
+                    const allDocs = getDocuments();
+                    allDocs.unshift({
+                        docId: Date.now().toString(), // Unique ID for the document entry
+                        schoolYear: selectedSchoolYear,
+                        name: docName,
+                        id: docId,
+                        date: docDate,
+                        type: docType,
+                        status: docStatus,
+                        folderUrl: docFolderUrl,
+                        filesCount: files.length
+                    });
+                    saveDocuments(allDocs);
+                    alert(`Hoàn tất! Đã tải lên ${files.length} file và lưu thông tin thành công.`);
+                    closeDocModal();
+                } else {
+                    throw new Error("Không nhận được URL thư mục sau khi tải lên.");
                 }
-            }
 
-            alert(`Hoàn tất! Tải lên thành công ${successCount} file. Thất bại: ${errorCount} file.`);
-            
-            if (successCount > 0) {
-                closeDocModal();
+            } catch (error) {
+                console.error(`Lỗi toàn trình:`, error);
+                alert(`Đã xảy ra lỗi trong quá trình tải lên. Vui lòng thử lại.`);
             }
         });
+        
+        schoolYearSelect.addEventListener('change', renderDocuments);
 
-        // Initial load
-        loadSchoolYears();
+
+        // Initial Load
+        renderSchoolYears(); // This will also trigger the first render of documents
     });
 
     function slugify(text) {
-      const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
-      const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
-      const p = new RegExp(a.split('').join('|'), 'g')
-
-      return text.toString().toLowerCase()
-        .replace(/\s+/g, '-') // Replace spaces with -
-        .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
-        .replace(/&/g, '-and-') // Replace & with 'and'
-        .replace(/[^\w\-]+/g, '') // Remove all non-word chars
-        .replace(/\-\-+/g, '-') // Replace multiple - with single -
-        .replace(/^-+/, '') // Trim - from start of text
-        .replace(/-+$/, '') // Trim - from end of text
+        const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;';
+        const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------';
+        const p = new RegExp(a.split('').join('|'), 'g');
+        return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
     }
     </script>
     
@@ -362,30 +412,16 @@
         let gapiInited = false;
         let gisInited = false;
 
-        document.getElementById('authorize_button').style.visibility = 'hidden';
-        document.getElementById('signout_button').style.visibility = 'hidden';
-
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 
         async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
-            gapiInited = true;
-            maybeEnableButtons();
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+            gapiInited = true; maybeEnableButtons();
         }
 
         function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: '', // Will be set later
-            });
-            gisInited = true;
-            maybeEnableButtons();
+            tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '' });
+            gisInited = true; maybeEnableButtons();
         }
 
         function maybeEnableButtons() {
@@ -397,46 +433,26 @@
         }
         
         function handleAuthClick() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error !== undefined) {
-                    throw (resp);
-                }
-                updateUIWithToken(gapi.client.getToken());
-            };
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            } else {
-                tokenClient.requestAccessToken({prompt: ''});
-            }
+            tokenClient.callback = async (resp) => { if (resp.error !== undefined) { throw (resp); } updateUIWithToken(gapi.client.getToken()); };
+            if (gapi.client.getToken() === null) { tokenClient.requestAccessToken({prompt: 'consent'}); } else { tokenClient.requestAccessToken({prompt: ''}); }
         }
 
         function handleSignoutClick() {
             const token = gapi.client.getToken();
-            if (token !== null) {
-                google.accounts.oauth2.revoke(token.access_token);
-                gapi.client.setToken('');
-                updateUIWithToken(null);
-            }
+            if (token !== null) { google.accounts.oauth2.revoke(token.access_token); gapi.client.setToken(''); updateUIWithToken(null); }
         }
         
         function updateUIWithToken(token) {
-            const authButton = document.getElementById('authorize_button');
-            const signoutButton = document.getElementById('signout_button');
-            const userNameEl = document.getElementById('user-name');
+            const authButton = document.getElementById('authorize_button'), signoutButton = document.getElementById('signout_button'), userNameEl = document.getElementById('user-name');
             if (token) {
-                authButton.style.display = 'none';
-                signoutButton.style.display = 'block';
-                gapi.client.oauth2.userinfo.get().then(response => {
-                    userNameEl.textContent = `Xin chào, ${response.result.name}`;
-                });
+                authButton.style.display = 'none'; signoutButton.style.display = 'block';
+                gapi.client.oauth2.userinfo.get().then(response => { userNameEl.textContent = `Xin chào, ${response.result.name}`; });
             } else {
-                authButton.style.display = 'block';
-                signoutButton.style.display = 'none';
-                userNameEl.textContent = '';
+                authButton.style.display = 'block'; signoutButton.style.display = 'none'; userNameEl.textContent = '';
             }
         }
 
-        async function handleSingleFileUpload(file, docName) {
+        async function handleFileUploadProcess(files, docName) {
             if (!gapi.client.getToken()) {
                 alert("Bạn cần đăng nhập Google trước khi tải file!");
                 handleAuthClick();
@@ -444,43 +460,40 @@
             }
 
             const schoolYear = document.getElementById('school-year-select').value;
-            if (!schoolYear) {
-                alert("Vui lòng chọn hoặc thêm một năm học.");
-                throw new Error("Chưa chọn năm học");
-            }
             const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
             const documentFolderName = slugify(docName);
             
             const qlvbFolderId = await findOrCreateFolder('QLVB');
             const yearFolderId = await findOrCreateFolder(schoolYear, qlvbFolderId);
             const monthFolderId = await findOrCreateFolder(currentMonth, yearFolderId);
-            const docFolderId = await findOrCreateFolder(documentFolderName, monthFolderId);
-
-            await uploadFileToFolder(file, docFolderId);
+            const docFolder = await findOrCreateFolder(documentFolderName, monthFolderId, true);
+            
+            for (const file of files) {
+                await uploadFileToFolder(file, docFolder.id);
+            }
+            return docFolder.webViewLink;
         }
 
-        async function findOrCreateFolder(folderName, parentId = 'root') {
+        async function findOrCreateFolder(folderName, parentId = 'root', returnFullObject = false) {
             const response = await gapi.client.drive.files.list({
                 q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${parentId}' in parents and trashed=false`,
-                fields: 'files(id, name)',
+                fields: 'files(id, name, webViewLink)',
             });
 
             if (response.result.files.length > 0) {
-                console.log(`Đã tìm thấy thư mục '${folderName}' với ID: ${response.result.files[0].id}`);
-                return response.result.files[0].id;
+                const folder = response.result.files[0];
+                console.log(`Đã tìm thấy thư mục '${folderName}' với ID: ${folder.id}`);
+                return returnFullObject ? folder : folder.id;
             } else {
                 console.log(`Không tìm thấy thư mục '${folderName}'. Đang tạo mới...`);
-                const fileMetadata = {
-                    'name': folderName,
-                    'mimeType': 'application/vnd.google-apps.folder',
-                    'parents': [parentId]
-                };
+                const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] };
                 const createResponse = await gapi.client.drive.files.create({
                     resource: fileMetadata,
-                    fields: 'id'
+                    fields: 'id, name, webViewLink'
                 });
-                console.log(`Đã tạo thư mục '${folderName}' với ID: ${createResponse.result.id}`);
-                return createResponse.result.id;
+                const newFolder = createResponse.result;
+                console.log(`Đã tạo thư mục '${folderName}' với ID: ${newFolder.id}`);
+                return returnFullObject ? newFolder : newFolder.id;
             }
         }
 
@@ -491,34 +504,23 @@
                 reader.onload = () => {
                     const fileContent = reader.result;
                     const boundary = '-------314159265358979323846';
-                    const delimiter = "\r\n--" + boundary + "\r\n";
-                    const close_delim = "\r\n--" + boundary + "--";
-
-                    const metadata = {
-                        'name': file.name, 'mimeType': file.type || 'application/octet-stream', 'parents': [folderId]
-                    };
-
+                    const delimiter = "\r\n--" + boundary + "\r\n", close_delim = "\r\n--" + boundary + "--";
+                    const metadata = { name: file.name, mimeType: file.type || 'application/octet-stream', parents: [folderId] };
                     const base64Data = btoa(new Uint8Array(fileContent).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-
-                    const multipartRequestBody =
-                        delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) +
-                        delimiter + 'Content-Type: ' + (file.type || 'application/octet-stream') + '\r\n' + 'Content-Transfer-Encoding: base64\r\n\r\n' + base64Data + close_delim;
+                    const multipartRequestBody = delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: ' + (file.type || 'application/octet-stream') + '\r\n' + 'Content-Transfer-Encoding: base64\r\n\r\n' + base64Data + close_delim;
                     
                     const request = gapi.client.request({
-                        'path': '/upload/drive/v3/files', 'method': 'POST',
-                        'params': {'uploadType': 'multipart'},
-                        'headers': {'Content-Type': 'multipart/related; boundary="' + boundary + '"'},
-                        'body': multipartRequestBody
+                        path: '/upload/drive/v3/files', method: 'POST',
+                        params: {'uploadType': 'multipart'},
+                        headers: {'Content-Type': 'multipart/related; boundary="' + boundary + '"'},
+                        body: multipartRequestBody
                     });
 
-                    request.execute(function(file, rawResponse) {
+                    request.execute((file, rawResponse) => {
                         if (file.id) {
-                            console.log('File đã tải lên:', file);
-                            // alert(`Tải file '${file.name}' thành công!`); // Removed for multi-upload
+                            console.log('File đã tải lên:', file.name);
                             resolve(file);
-                        } else {
-                           reject(JSON.parse(rawResponse.body));
-                        }
+                        } else { reject(JSON.parse(rawResponse.body)); }
                     });
                 };
                  reader.onerror = error => reject(error);
