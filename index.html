@@ -125,7 +125,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="md:col-span-2">
                             <label for="doc-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Tên văn bản / Trích yếu</label>
-                            <input type="text" name="doc-name" id="doc-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="VD: Kế hoạch tổ chức..." required>
+                            <input type="text" name="doc-name" id="doc-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="VD: Kế hoạch tổ chức..." required >
                         </div>
                         <div>
                             <label for="doc-id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Số/Ký hiệu</label>
@@ -148,8 +148,8 @@
                             </select>
                         </div>
                         <div class="md:col-span-2">
-                             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">Tải file lên (sẽ lưu vào Google Drive)</label>
-                             <input class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" id="file_input" type="file">
+                             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">Tải file lên (có thể chọn nhiều file)</label>
+                             <input class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" id="file_input" type="file" multiple>
                         </div>
                     </div>
                 </form>
@@ -274,7 +274,14 @@
         const docModal = document.getElementById('document-modal');
         const yearModal = document.getElementById('school-year-modal');
         const openDocModal = () => docModal.classList.remove('hidden');
-        const closeDocModal = () => docModal.classList.add('hidden');
+        const closeDocModal = () => {
+            docModal.classList.add('hidden');
+            // Reset form on close
+            document.getElementById('doc-name').value = '';
+            document.getElementById('doc-id').value = '';
+            document.getElementById('doc-date').value = '';
+            document.getElementById('file_input').value = '';
+        }
         const openYearModal = () => yearModal.classList.remove('hidden');
         const closeYearModal = () => yearModal.classList.add('hidden');
         
@@ -287,18 +294,58 @@
         document.getElementById('close-year-modal-btn').addEventListener('click', closeYearModal);
         yearModal.addEventListener('click', e => { if (e.target === yearModal) closeYearModal(); });
 
-        document.getElementById('save-btn').addEventListener('click', () => {
-            const file = document.getElementById('file_input').files[0];
-            if (file) {
-                handleFileUpload(file);
-            } else {
-                alert('Vui lòng chọn một file để tải lên.');
+        document.getElementById('save-btn').addEventListener('click', async () => {
+            const files = document.getElementById('file_input').files;
+            const docName = document.getElementById('doc-name').value.trim();
+
+            if (files.length === 0) {
+                alert('Vui lòng chọn ít nhất một file để tải lên.');
+                return;
+            }
+            if (!docName) {
+                alert('Vui lòng nhập "Tên văn bản / Trích yếu". Tên này sẽ được dùng để tạo thư mục chứa file.');
+                return;
+            }
+            
+            alert(`Bắt đầu quá trình tải lên ${files.length} file. Vui lòng chờ...`);
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const file of files) {
+                try {
+                    await handleSingleFileUpload(file, docName);
+                    successCount++;
+                } catch (error) {
+                    console.error(`Lỗi khi tải file ${file.name}:`, error);
+                    errorCount++;
+                }
+            }
+
+            alert(`Hoàn tất! Tải lên thành công ${successCount} file. Thất bại: ${errorCount} file.`);
+            
+            if (successCount > 0) {
+                closeDocModal();
             }
         });
 
         // Initial load
         loadSchoolYears();
     });
+
+    function slugify(text) {
+      const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
+      const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
+      const p = new RegExp(a.split('').join('|'), 'g')
+
+      return text.toString().toLowerCase()
+        .replace(/\s+/g, '-') // Replace spaces with -
+        .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
+        .replace(/&/g, '-and-') // Replace & with 'and'
+        .replace(/[^\w\-]+/g, '') // Remove all non-word chars
+        .replace(/\-\-+/g, '-') // Replace multiple - with single -
+        .replace(/^-+/, '') // Trim - from start of text
+        .replace(/-+$/, '') // Trim - from end of text
+    }
     </script>
     
     <!-- Google API Integration -->
@@ -306,7 +353,7 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         const API_KEY = 'AIzaSyAn17SI2Xwx1ek-2xPw3IilNxPKG6O7nGg';
-        const CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
+        const CLIENT_ID = '1882095959563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
         
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -389,34 +436,27 @@
             }
         }
 
-        async function handleFileUpload(file) {
+        async function handleSingleFileUpload(file, docName) {
             if (!gapi.client.getToken()) {
                 alert("Bạn cần đăng nhập Google trước khi tải file!");
                 handleAuthClick();
-                return;
+                throw new Error("Chưa đăng nhập Google");
             }
 
             const schoolYear = document.getElementById('school-year-select').value;
             if (!schoolYear) {
                 alert("Vui lòng chọn hoặc thêm một năm học.");
-                return;
+                throw new Error("Chưa chọn năm học");
             }
             const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            const documentFolderName = slugify(docName);
             
-            try {
-                alert('Bắt đầu quá trình tải lên. Vui lòng chờ...');
-                const qlvbFolderId = await findOrCreateFolder('QLVB');
-                const yearFolderId = await findOrCreateFolder(schoolYear, qlvbFolderId);
-                const monthFolderId = await findOrCreateFolder(currentMonth, yearFolderId);
-                
-                await uploadFileToFolder(file, monthFolderId);
-                document.getElementById('document-modal').classList.add('hidden'); // Close modal on success
-                document.getElementById('file_input').value = ''; // Reset file input
+            const qlvbFolderId = await findOrCreateFolder('QLVB');
+            const yearFolderId = await findOrCreateFolder(schoolYear, qlvbFolderId);
+            const monthFolderId = await findOrCreateFolder(currentMonth, yearFolderId);
+            const docFolderId = await findOrCreateFolder(documentFolderName, monthFolderId);
 
-            } catch (error) {
-                console.error('Lỗi:', error);
-                alert('Đã xảy ra lỗi khi tải file lên. Chi tiết: ' + (error.result?.error?.message || error.message));
-            }
+            await uploadFileToFolder(file, docFolderId);
         }
 
         async function findOrCreateFolder(folderName, parentId = 'root') {
@@ -474,7 +514,7 @@
                     request.execute(function(file, rawResponse) {
                         if (file.id) {
                             console.log('File đã tải lên:', file);
-                            alert(`Tải file '${file.name}' thành công!`);
+                            // alert(`Tải file '${file.name}' thành công!`); // Removed for multi-upload
                             resolve(file);
                         } else {
                            reject(JSON.parse(rawResponse.body));
