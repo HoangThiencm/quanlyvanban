@@ -30,6 +30,14 @@
         .dark .file-item.selected {
             background-color: #3730a3;
         }
+        .table-row-group {
+             cursor: pointer;
+        }
+        /* Style cho các nút bị vô hiệu hóa */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
     <!-- Thư viện Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -418,22 +426,29 @@
                 }
                 docs.forEach((doc, index) => {
                     const fileCount = doc.driveData?.files?.length || 0;
+                    const isLocked = doc.isLocked === true;
+                    const rowClass = isLocked ? 'opacity-60' : '';
+                    const lockIcon = isLocked ? '<i data-lucide="lock" class="w-4 h-4"></i>' : '<i data-lucide="unlock" class="w-4 h-4"></i>';
+                    const lockTitle = isLocked ? 'Mở khóa' : 'Khóa';
+                    const lockColor = isLocked ? 'text-yellow-500' : 'text-gray-400';
+
                     ui.docTableBody.innerHTML += `
-                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer view-files-row" data-doc-id="${doc.firestoreId}">
-                            <td class="py-4 px-6">${index + 1}</td>
-                            <th class="py-4 px-6 font-medium text-gray-900 dark:text-white">${doc.name || ''}</th>
-                            <td class="py-4 px-6">${doc.id || ''}</td>
-                            <td class="py-4 px-6">${formatDate(doc.date)}</td>
-                            <td class="py-4 px-6 text-sm">
+                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${rowClass}" data-doc-id="${doc.firestoreId}">
+                            <td class="py-4 px-6 view-files-cell">${index + 1}</td>
+                            <th class="py-4 px-6 font-medium text-gray-900 dark:text-white view-files-cell">${doc.name || ''}</th>
+                            <td class="py-4 px-6 view-files-cell">${doc.id || ''}</td>
+                            <td class="py-4 px-6 view-files-cell">${formatDate(doc.date)}</td>
+                            <td class="py-4 px-6 text-sm view-files-cell">
                                 <span class="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
                                     <i data-lucide="paperclip" class="w-3 h-3 mr-1"></i>
                                     ${fileCount} tệp
                                 </span>
                             </td>
-                            <td class="py-4 px-6">${doc.status || ''}</td>
+                            <td class="py-4 px-6 view-files-cell">${doc.status || ''}</td>
                             <td class="py-4 px-6 flex items-center space-x-2">
-                                <button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                                <button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                <button data-doc-id="${doc.firestoreId}" data-locked="${isLocked}" class="toggle-lock-btn p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${lockColor}" title="${lockTitle}">${lockIcon}</button>
+                                <button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa" ${isLocked ? 'disabled' : ''}><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                <button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa" ${isLocked ? 'disabled' : ''}><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </td>
                         </tr>`;
                 });
@@ -508,11 +523,21 @@
             return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
         }
 
-        // --- HÀM MỚI ĐỂ CHUYỂN TÊN THƯ MỤC THÀNH KHÔNG DẤU ---
         function convertToUnaccented(text) {
             text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             text = text.replace(/Đ/g, 'D').replace(/đ/g, 'd');
             return text;
+        }
+
+        // --- HÀM MỚI ĐỂ KHÓA/MỞ KHÓA VĂN BẢN ---
+        async function toggleLockStatus(docId, currentStatus) {
+            const docRef = getCollectionRef('documents').doc(docId);
+            try {
+                await docRef.update({ isLocked: !currentStatus });
+            } catch (error) {
+                console.error("Error updating lock status:", error);
+                alert("Đã xảy ra lỗi khi cập nhật trạng thái khóa.");
+            }
         }
 
         // --- EVENT LISTENERS ---
@@ -573,20 +598,22 @@
         });
         
         ui.docTableBody.addEventListener('click', async (e) => {
-            const row = e.target.closest('.view-files-row');
+            const viewCell = e.target.closest('.view-files-cell');
             const deleteBtn = e.target.closest('.delete-doc-btn');
             const editBtn = e.target.closest('.edit-doc-btn');
+            const lockBtn = e.target.closest('.toggle-lock-btn');
             
+            if (lockBtn) {
+                e.stopPropagation();
+                const docId = lockBtn.dataset.docId;
+                const isLocked = lockBtn.dataset.locked === 'true';
+                toggleLockStatus(docId, isLocked);
+                return;
+            }
+
             if (deleteBtn || editBtn) {
                 e.stopPropagation();
                 const docId = (deleteBtn || editBtn).dataset.docId;
-
-                if (deleteBtn) {
-                    if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
-                        getCollectionRef('documents').doc(docId).delete();
-                    }
-                }
-
                 if (editBtn) {
                     const docRef = getCollectionRef('documents').doc(docId);
                     const docSnap = await docRef.get();
@@ -603,11 +630,17 @@
                         ui.docModal.classList.remove('hidden');
                     }
                 }
+                if (deleteBtn) {
+                     if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
+                        getCollectionRef('documents').doc(docId).delete();
+                    }
+                }
                 return;
             }
 
-            if (row) {
-                openFileViewer(row.dataset.docId);
+            if (viewCell) {
+                const docId = viewCell.closest('tr').dataset.docId;
+                openFileViewer(docId);
             }
         });
         
@@ -650,6 +683,7 @@
                     await docsRef.doc(existingDocId).update(docData);
                 } else {
                     docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    docData.isLocked = false; // Mặc định văn bản mới sẽ không bị khóa
                     await docsRef.add(docData);
                 }
                 
@@ -738,5 +772,4 @@
     </script>
 </body>
 </html>
-
 
