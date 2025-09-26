@@ -17,6 +17,9 @@
         .dark ::-webkit-scrollbar-thumb { background: #718096; }
         .dark ::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
     </style>
+    <!-- BƯỚC 2.1: THÊM FIREBASE SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
@@ -99,11 +102,12 @@
     <div id="document-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4">
             <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Thêm Văn bản Mới</h3>
+                <h3 id="modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">Thêm Văn bản Mới</h3>
                 <button id="close-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6">
                 <form id="document-form" class="space-y-4">
+                    <input type="hidden" id="doc-firestore-id">
                     <div>
                         <label for="doc-name" class="block mb-2 text-sm font-medium">Tên văn bản / Trích yếu</label>
                         <input type="text" id="doc-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600" required>
@@ -132,7 +136,8 @@
                     </div>
                     <div>
                         <label for="file_input" class="block mb-2 text-sm font-medium">Tải file lên (có thể chọn nhiều file)</label>
-                        <input class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600" id="file_input" type="file" multiple required>
+                        <input class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600" id="file_input" type="file" multiple>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Khi chỉnh sửa, để trống nếu không muốn thay đổi file.</p>
                     </div>
                 </form>
             </div>
@@ -163,8 +168,24 @@
     </div>
     
     <script>
-    // --- APP LOGIC ---
+    // BƯỚC 2.2: KẾT NỐI FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
+      authDomain: "quanlyvanban-40a9d.firebaseapp.com",
+      projectId: "quanlyvanban-40a9d",
+      storageBucket: "quanlyvanban-40a9d.firebasestorage.app",
+      messagingSenderId: "856857772073",
+      appId: "1:856857772073:web:d09c4b1deead0702f61c38"
+    };
+
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    let currentUserProfile = null; // Biến lưu thông tin người dùng (quan trọng)
+    let unsubscribeDocuments = null; // Biến để ngắt kết nối real-time khi cần
+
     document.addEventListener('DOMContentLoaded', () => {
+        // --- APP LOGIC ---
         const GAPI_CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
         const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
         const REDIRECT_URI = `${window.location.origin}/popup.html`;
@@ -191,18 +212,26 @@
             saveBtn: document.getElementById('save-btn'),
             docTableBody: document.getElementById('document-table-body'),
             searchInput: document.getElementById('search-input'),
+            fileInput: document.getElementById('file_input'),
+            modalTitle: document.getElementById('modal-title'),
+            docFirestoreId: document.getElementById('doc-firestore-id'),
         };
 
         const storageKeys = {
-            years: 'schoolYearsList_v3',
-            docs: 'documentsList_v3',
+            // Không dùng localStorage nữa, nhưng giữ lại để tham khảo
             token: 'google_auth_token_v3'
         };
 
+        // --- Authentication ---
         function updateAuthUI(isLoggedIn) {
             ui.authBtn.classList.toggle('hidden', isLoggedIn);
             ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
-            if (!isLoggedIn) ui.userName.textContent = '';
+            if (!isLoggedIn) {
+                 ui.userName.textContent = '';
+                 currentUserProfile = null;
+                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
+                 ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
+            }
         }
 
         async function getUserProfile() {
@@ -213,10 +242,12 @@
                 });
                 if (!response.ok) throw new Error('Failed to fetch user profile.');
                 const profile = await response.json();
+                currentUserProfile = profile; // LƯU PROFILE USER LẠI
                 ui.userName.textContent = `Xin chào, ${profile.name || profile.email}`;
+                renderYears(); // TẢI DỮ LIỆU SAU KHI ĐĂNG NHẬP
             } catch (error) {
                 console.error("Error fetching user profile:", error);
-                ui.userName.textContent = 'Đã đăng nhập';
+                ui.userName.textContent = 'Lỗi xác thực';
             }
         }
 
@@ -271,22 +302,37 @@
              }
         });
 
-        // --- UI & Local Data Logic ---
-        function getYears() {
-            const years = localStorage.getItem(storageKeys.years);
-            if (years) return JSON.parse(years);
-            const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025", "Năm học 2023-2024"];
-            localStorage.setItem(storageKeys.years, JSON.stringify(defaultYears));
-            return defaultYears;
+        // --- BƯỚC 2.4: THAY THẾ LOGIC DỮ LIỆU BẰNG FIRESTORE ---
+
+        function getCollectionRef(collectionName) {
+            if (!currentUserProfile) return null;
+            // Dữ liệu của mỗi người dùng được lưu riêng biệt
+            return db.collection('users').doc(currentUserProfile.sub).collection(collectionName);
         }
 
-        function saveYears(years) {
-            localStorage.setItem(storageKeys.years, JSON.stringify(years));
-            renderYears();
-        }
+        async function renderYears() {
+            const yearsRef = getCollectionRef('schoolYears');
+            if (!yearsRef) {
+                ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
+                ui.yearList.innerHTML = '';
+                return;
+            }
 
-        function renderYears() {
-            const years = getYears();
+            const snapshot = await yearsRef.orderBy('name', 'desc').get();
+            const years = snapshot.docs.map(doc => doc.data().name);
+
+            if (years.length === 0) {
+                const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
+                const batch = db.batch();
+                defaultYears.forEach(year => {
+                    const docRef = yearsRef.doc();
+                    batch.set(docRef, { name: year });
+                });
+                await batch.commit();
+                renderYears(); 
+                return;
+            }
+
             ui.schoolYearSelect.innerHTML = '';
             ui.yearList.innerHTML = '';
             years.forEach(year => {
@@ -296,46 +342,64 @@
             lucide.createIcons();
             renderDocuments();
         }
-
-        function getDocuments() { return JSON.parse(localStorage.getItem(storageKeys.docs)) || []; }
-        function saveDocuments(docs) { localStorage.setItem(storageKeys.docs, JSON.stringify(docs)); renderDocuments(); }
         
+        function renderDocuments() {
+            if (unsubscribeDocuments) unsubscribeDocuments(); // Hủy listener cũ
+
+            const docsRef = getCollectionRef('documents');
+            if (!docsRef) {
+                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
+                return;
+            }
+
+            const selectedYear = ui.schoolYearSelect.value;
+            if (!selectedYear) {
+                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng tạo năm học trước...</td></tr>`;
+                return;
+            }
+            const searchTerm = ui.searchInput.value.toLowerCase();
+
+            let query = docsRef.where('schoolYear', '==', selectedYear).orderBy('createdAt', 'desc');
+            
+            unsubscribeDocuments = query.onSnapshot(snapshot => {
+                let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
+
+                if (searchTerm) {
+                    docs = docs.filter(doc => 
+                        (doc.name && doc.name.toLowerCase().includes(searchTerm)) || 
+                        (doc.id && doc.id.toLowerCase().includes(searchTerm))
+                    );
+                }
+
+                ui.docTableBody.innerHTML = '';
+                if (docs.length === 0) {
+                    ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu cho năm học này...</td></tr>`;
+                    return;
+                }
+                docs.forEach((doc, index) => {
+                    ui.docTableBody.innerHTML += `
+                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <td class="py-4 px-6">${index + 1}</td>
+                            <th class="py-4 px-6 font-medium text-gray-900 dark:text-white">${doc.name || ''}</th>
+                            <td class="py-4 px-6">${doc.id || ''}</td>
+                            <td class="py-4 px-6">${formatDate(doc.date)}</td>
+                            <td class="py-4 px-6">${doc.type || ''}</td>
+                            <td class="py-4 px-6">${doc.status || ''}</td>
+                            <td class="py-4 px-6 flex items-center space-x-2">
+                                <a href="${doc.folderUrl || '#'}" target="_blank" class="p-2 text-blue-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Mở thư mục"><i data-lucide="folder" class="w-4 h-4"></i></a>
+                                <button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                <button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>`;
+                });
+                lucide.createIcons();
+            });
+        }
+
         function formatDate(dateString) {
             if (!dateString) return '';
             const [year, month, day] = dateString.split('-');
             return `${day}/${month}/${year}`;
-        }
-
-        function renderDocuments() {
-            const allDocs = getDocuments();
-            const selectedYear = ui.schoolYearSelect.value;
-            const searchTerm = ui.searchInput.value.toLowerCase();
-            let filteredDocs = allDocs.filter(doc => doc.schoolYear === selectedYear);
-            if (searchTerm) {
-                filteredDocs = filteredDocs.filter(doc => doc.name.toLowerCase().includes(searchTerm) || doc.id.toLowerCase().includes(searchTerm));
-            }
-
-            ui.docTableBody.innerHTML = '';
-            if (filteredDocs.length === 0) {
-                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu...</td></tr>`;
-                return;
-            }
-            filteredDocs.forEach((doc, index) => {
-                ui.docTableBody.innerHTML += `
-                    <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-                        <td class="py-4 px-6">${index + 1}</td>
-                        <th class="py-4 px-6 font-medium text-gray-900 dark:text-white">${doc.name}</th>
-                        <td class="py-4 px-6">${doc.id}</td>
-                        <td class="py-4 px-6">${formatDate(doc.date)}</td>
-                        <td class="py-4 px-6">${doc.type}</td>
-                        <td class="py-4 px-6">${doc.status}</td>
-                        <td class="py-4 px-6 flex items-center space-x-2">
-                            <a href="${doc.folderUrl || '#'}" target="_blank" class="p-2 text-gray-500 rounded-lg hover:bg-gray-100" title="Mở thư mục"><i data-lucide="folder" class="w-4 h-4"></i></a>
-                            <button data-doc-id="${doc.docId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-red-100" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                        </td>
-                    </tr>`;
-            });
-            lucide.createIcons();
         }
 
         function slugify(text) {
@@ -349,33 +413,82 @@
         ui.authBtn.addEventListener('click', handleAuthClick);
         ui.signOutBtn.addEventListener('click', handleSignOutClick);
         ui.themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
-        ui.addDocBtn.addEventListener('click', () => ui.docModal.classList.remove('hidden'));
+        
+        ui.addDocBtn.addEventListener('click', () => {
+            ui.docForm.reset();
+            ui.docFirestoreId.value = '';
+            ui.modalTitle.textContent = 'Thêm Văn bản Mới';
+            ui.fileInput.required = true;
+            ui.docModal.classList.remove('hidden');
+        });
+        
         ui.closeDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
         ui.cancelDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
         ui.manageYearsBtn.addEventListener('click', () => ui.yearModal.classList.remove('hidden'));
         ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
         
-        ui.addYearBtn.addEventListener('click', () => {
+        ui.addYearBtn.addEventListener('click', async () => {
             const newYear = ui.newYearInput.value.trim();
             if (newYear) {
-                const years = getYears();
-                if (!years.includes(newYear)) saveYears([newYear, ...years]);
-                else alert('Năm học này đã tồn tại!');
+                const yearsRef = getCollectionRef('schoolYears');
+                if (!yearsRef) return alert('Vui lòng đăng nhập');
+                const existing = await yearsRef.where('name', '==', newYear).get();
+                if (existing.empty) {
+                    await yearsRef.add({ name: newYear });
+                } else {
+                    alert('Năm học này đã tồn tại!');
+                }
                 ui.newYearInput.value = '';
             }
         });
 
-        ui.yearList.addEventListener('click', (e) => {
+        ui.yearList.addEventListener('click', async (e) => {
             const deleteBtn = e.target.closest('.delete-year-btn');
-            if (deleteBtn && confirm(`Bạn có chắc muốn xóa "${deleteBtn.dataset.year}"?`)) {
-                saveYears(getYears().filter(y => y !== deleteBtn.dataset.year));
+            if (deleteBtn) {
+                const yearToDelete = deleteBtn.dataset.year;
+                if (confirm(`Bạn có chắc muốn xóa "${yearToDelete}"? Việc này sẽ xóa TẤT CẢ văn bản trong năm học này.`)) {
+                    const yearsRef = getCollectionRef('schoolYears');
+                    const docsRef = getCollectionRef('documents');
+                    if (!yearsRef || !docsRef) return;
+                    
+                    const yearQuery = await yearsRef.where('name', '==', yearToDelete).get();
+                    const docQuery = await docsRef.where('schoolYear', '==', yearToDelete).get();
+
+                    const batch = db.batch();
+                    yearQuery.forEach(doc => batch.delete(doc.ref));
+                    docQuery.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                }
             }
         });
         
-        ui.docTableBody.addEventListener('click', (e) => {
+        ui.docTableBody.addEventListener('click', async (e) => {
             const deleteBtn = e.target.closest('.delete-doc-btn');
-            if (deleteBtn && confirm('Bạn có chắc muốn xóa văn bản này?')) {
-                saveDocuments(getDocuments().filter(d => d.docId !== deleteBtn.dataset.docId));
+            const editBtn = e.target.closest('.edit-doc-btn');
+
+            if (deleteBtn) {
+                if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
+                    const docId = deleteBtn.dataset.docId;
+                    getCollectionRef('documents').doc(docId).delete();
+                }
+            }
+
+            if (editBtn) {
+                const docId = editBtn.dataset.docId;
+                const docRef = getCollectionRef('documents').doc(docId);
+                const docSnap = await docRef.get();
+                if (docSnap.exists) {
+                    const data = docSnap.data();
+                    document.getElementById('doc-name').value = data.name || '';
+                    document.getElementById('doc-id').value = data.id || '';
+                    document.getElementById('doc-date').value = data.date || '';
+                    document.getElementById('doc-type').value = data.type || '';
+                    document.getElementById('doc-status').value = data.status || '';
+                    ui.docFirestoreId.value = docId;
+                    ui.modalTitle.textContent = 'Chỉnh sửa Văn bản';
+                    ui.fileInput.required = false;
+                    ui.docModal.classList.remove('hidden');
+                }
             }
         });
         
@@ -397,24 +510,37 @@
             ui.saveBtn.textContent = 'Đang xử lý...';
             
             try {
-                const folderUrl = await uploadManager.startUpload();
-                const allDocs = getDocuments();
-                allDocs.unshift({
-                    docId: Date.now().toString(),
+                const docData = {
                     schoolYear: ui.schoolYearSelect.value,
                     name: document.getElementById('doc-name').value.trim(),
                     id: document.getElementById('doc-id').value.trim(),
                     date: document.getElementById('doc-date').value,
                     type: document.getElementById('doc-type').value,
                     status: document.getElementById('doc-status').value,
-                    folderUrl: folderUrl
-                });
-                saveDocuments(allDocs);
-                alert('Tải lên và lưu thông tin thành công!');
+                };
+                
+                const existingDocId = ui.docFirestoreId.value;
+
+                if (ui.fileInput.files.length > 0) {
+                     docData.folderUrl = await uploadManager.startUpload();
+                }
+
+                const docsRef = getCollectionRef('documents');
+
+                if (existingDocId) {
+                    // Cập nhật văn bản đã có
+                    await docsRef.doc(existingDocId).update(docData);
+                } else {
+                    // Thêm văn bản mới
+                    docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await docsRef.add(docData);
+                }
+                
+                alert('Lưu thông tin thành công!');
                 ui.docModal.classList.add('hidden');
                 ui.docForm.reset();
             } catch (error) {
-                console.error("Upload process failed:", error);
+                console.error("Save process failed:", error);
                 alert(`Đã xảy ra lỗi: ${error.message}`);
             } finally {
                 ui.saveBtn.disabled = false;
@@ -432,8 +558,8 @@
                     body
                 });
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error.message || 'Lỗi không xác định từ Google API.');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error.message || 'Lỗi không xác định từ Google API.');
                 }
                 return response.json();
             },
@@ -448,40 +574,28 @@
             },
             async uploadFile(file, parentId) {
                 const metadata = { name: file.name, parents: [parentId] };
-                const boundary = '-------314159265358979323846';
-                const delimiter = `\r\n--${boundary}\r\n`;
-                const closeDelim = `\r\n--${boundary}--`;
+                const path = 'upload/drive/v3/files?uploadType=media';
+                const headers = { 'Content-Type': file.type || 'application/octet-stream' };
 
-                const buf = await file.arrayBuffer();
-                const bytes = new Uint8Array(buf);
-                let binary = '';
-                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-                const base64Data = btoa(binary);
-
-                const body =
-                    delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                    JSON.stringify(metadata) +
-                    delimiter + `Content-Type: ${file.type || 'application/octet-stream'}\r\n` +
-                    'Content-Transfer-Encoding: base64\r\n\r\n' +
-                    base64Data +
-                    closeDelim;
-
-                const path = 'upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
-                const headers = { 'Content-Type': `multipart/related; boundary=${boundary}` };
-                return this.apiCall(path, 'POST', body, headers);
+                // Create metadata first
+                const fileMetadata = await this.apiCall('drive/v3/files', 'POST', JSON.stringify(metadata), {'Content-Type': 'application/json'});
+                
+                // Then upload the file content
+                await this.apiCall(`${path}&fileId=${fileMetadata.id}`, 'PATCH', file, headers);
+                return fileMetadata;
             },
             async startUpload() {
                 const docName = document.getElementById('doc-name').value.trim();
                 const schoolYear = ui.schoolYearSelect.value;
                 const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                const docFolderName = slugify(docName);
+                const docFolderName = slugify(docName) + '-' + Date.now(); // Thêm timestamp để tránh trùng lặp
 
-                const qlvbFolder = await this.findOrCreateFolder('QLVB');
+                const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
                 const yearFolder = await this.findOrCreateFolder(schoolYear, qlvbFolder.id);
                 const monthFolder = await this.findOrCreateFolder(currentMonth, yearFolder.id);
                 const docFolder = await this.findOrCreateFolder(docFolderName, monthFolder.id);
                 
-                const files = document.getElementById('file_input').files;
+                const files = ui.fileInput.files;
                 for (const file of files) {
                     await this.uploadFile(file, docFolder.id);
                 }
@@ -491,9 +605,8 @@
 
         // --- Initial Load ---
         checkTokenOnLoad();
-        renderYears();
+        // renderYears() sẽ được gọi bên trong checkTokenOnLoad sau khi có profile user
     });
     </script>
 </body>
 </html>
-
