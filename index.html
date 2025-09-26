@@ -213,7 +213,7 @@
     // --- KHỞI TẠO FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
-      authDomain: "quanlyvanban-40a9d.firebaseapp.com",
+      authDomain: "quanlyvanban-40a-9d.firebaseapp.com",
       projectId: "quanlyvanban-40a9d",
       storageBucket: "quanlyvanban-40a9d.firebasestorage.app",
       messagingSenderId: "856857772073",
@@ -698,7 +698,7 @@
                 
                 const filesToUpload = ui.fileInput.files;
                 for (const file of filesToUpload) {
-                    await this.uploadFile(file, docFolder.id);
+                    await this.apiCall(`upload/drive/v3/files?uploadType=multipart`, 'POST', body, { 'Content-Type': `multipart/related; boundary=${boundary}` });
                 }
                 
                 const listPath = `drive/v3/files?q='${docFolder.id}' in parents and trashed=false&fields=files(id, name, iconLink, webViewLink, webContentLink)`;
@@ -718,4 +718,5 @@
     </script>
 </body>
 </html>
+" because it says "Đã xảy ra lỗi: Failed to fetch" when I try to upload files. Fix this by editing the document.
 
