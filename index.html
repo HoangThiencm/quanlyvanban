@@ -508,6 +508,13 @@
             return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
         }
 
+        // --- HÀM MỚI ĐỂ CHUYỂN TÊN THƯ MỤC THÀNH KHÔNG DẤU ---
+        function convertToUnaccented(text) {
+            text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            text = text.replace(/Đ/g, 'D').replace(/đ/g, 'd');
+            return text;
+        }
+
         // --- EVENT LISTENERS ---
         ui.authBtn.addEventListener('click', handleAuthClick);
         ui.signOutBtn.addEventListener('click', handleSignOutClick);
@@ -658,7 +665,7 @@
             }
         });
         
-        // --- GOOGLE DRIVE API LOGIC ---
+        // --- GOOGLE DRIVE API LOGIC (CẬP NHẬT TÊN THƯ MỤC) ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
@@ -697,11 +704,16 @@
                 const docName = document.getElementById('doc-name').value.trim();
                 const schoolYear = ui.schoolYearSelect.value;
                 const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                const docFolderName = slugify(docName) + '-' + Date.now();
+                
+                const unaccentedDocName = convertToUnaccented(docName);
+                const unaccentedSchoolYear = convertToUnaccented(schoolYear);
+                const unaccentedMonth = convertToUnaccented(currentMonth);
+
+                const docFolderName = unaccentedDocName + ' - ' + Date.now();
 
                 const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
-                const yearFolder = await this.findOrCreateFolder(schoolYear, qlvbFolder.id);
-                const monthFolder = await this.findOrCreateFolder(currentMonth, yearFolder.id);
+                const yearFolder = await this.findOrCreateFolder(unaccentedSchoolYear, qlvbFolder.id);
+                const monthFolder = await this.findOrCreateFolder(unaccentedMonth, yearFolder.id);
                 const docFolder = await this.findOrCreateFolder(docFolderName, monthFolder.id);
                 
                 const filesToUpload = ui.fileInput.files;
