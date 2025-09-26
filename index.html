@@ -213,7 +213,7 @@
     // --- KHỞI TẠO FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
-      authDomain: "quanlyvanban-40a-9d.firebaseapp.com",
+      authDomain: "quanlyvanban-40a9d.firebaseapp.com",
       projectId: "quanlyvanban-40a9d",
       storageBucket: "quanlyvanban-40a9d.firebasestorage.app",
       messagingSenderId: "856857772073",
@@ -651,11 +651,13 @@
             }
         });
         
-        // --- GOOGLE DRIVE API LOGIC ---
+        // --- GOOGLE DRIVE API LOGIC (SỬA LỖI UPLOAD) ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
-                const response = await fetch(`https://www.googleapis.com/${path}`, {
+                // Sửa lỗi: Thêm 'https://www.googleapis.com' nếu path chưa có
+                const url = path.startsWith('https://') ? path : `https://www.googleapis.com/${path}`;
+                const response = await fetch(url, {
                     method,
                     headers: { ...defaultHeaders, ...headers },
                     body
@@ -681,7 +683,7 @@
             },
             async uploadFile(file, parentId) {
                 const metadata = { name: file.name, parents: [parentId] };
-                const fileMetadataResponse = await this.apiCall('https://www.googleapis.com/drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
+                const fileMetadataResponse = await this.apiCall('drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
                 const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
                 await this.apiCall(uploadUrl, 'PATCH', file, { 'Content-Type': file.type || 'application/octet-stream' });
             },
@@ -698,7 +700,8 @@
                 
                 const filesToUpload = ui.fileInput.files;
                 for (const file of filesToUpload) {
-                    await this.apiCall(`upload/drive/v3/files?uploadType=multipart`, 'POST', body, { 'Content-Type': `multipart/related; boundary=${boundary}` });
+                    // Sửa lỗi: Gọi đúng hàm uploadFile
+                    await this.uploadFile(file, docFolder.id);
                 }
                 
                 const listPath = `drive/v3/files?q='${docFolder.id}' in parents and trashed=false&fields=files(id, name, iconLink, webViewLink, webContentLink)`;
@@ -718,5 +721,4 @@
     </script>
 </body>
 </html>
-" because it says "Đã xảy ra lỗi: Failed to fetch" when I try to upload files. Fix this by editing the document.
 
