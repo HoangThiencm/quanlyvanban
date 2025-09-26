@@ -444,14 +444,18 @@
             if (selectedType !== 'all') {
                 query = query.where('type', '==', selectedType);
             }
-            if (selectedMonth !== 'all') {
-                query = query.where('month', '==', selectedMonth);
-            }
+            // Logic lọc theo tháng đã được gỡ bỏ khỏi query Firestore
             query = query.orderBy('createdAt', 'desc');
             
             unsubscribeDocuments = query.onSnapshot(snapshot => {
                 let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
 
+                // Lọc theo tháng phía client
+                if (selectedMonth !== 'all') {
+                    docs = docs.filter(doc => doc.date && doc.date.substring(5, 7) === selectedMonth);
+                }
+
+                // Lọc theo từ khóa tìm kiếm
                 if (searchTerm) {
                     docs = docs.filter(doc => 
                         (doc.name && doc.name.toLowerCase().includes(searchTerm)) || 
