@@ -467,16 +467,23 @@
                     const li = document.createElement('li');
                     li.className = 'file-item p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-sm';
                     li.innerHTML = `
-                        <img src="${file.iconLink}" class="w-4 h-4 mr-2" alt="icon">
-                        <span class="flex-grow">${file.name}</span>
+                        <img src="${file.iconLink}" class="w-4 h-4 mr-2 shrink-0" alt="icon">
+                        <span class="flex-grow truncate" title="${file.name}">${file.name}</span>
+                        <a href="${file.webContentLink}" target="_blank" download class="download-btn p-1 text-gray-400 hover:text-blue-500 ml-2 shrink-0" title="Tải về">
+                           <i data-lucide="download" class="w-4 h-4"></i>
+                        </a>
                     `;
-                    li.addEventListener('click', () => {
+                    li.addEventListener('click', (e) => {
+                        if (e.target.closest('.download-btn')) {
+                            return; 
+                        }
                         document.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
                         li.classList.add('selected');
                         previewFile(file);
                     });
                     ui.fileList.appendChild(li);
                 });
+                lucide.createIcons();
             }
             ui.fileViewerModal.classList.remove('hidden');
         }
@@ -651,11 +658,10 @@
             }
         });
         
-        // --- GOOGLE DRIVE API LOGIC (SỬA LỖI UPLOAD) ---
+        // --- GOOGLE DRIVE API LOGIC ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
-                // Sửa lỗi: Thêm 'https://www.googleapis.com' nếu path chưa có
                 const url = path.startsWith('https://') ? path : `https://www.googleapis.com/${path}`;
                 const response = await fetch(url, {
                     method,
@@ -683,7 +689,7 @@
             },
             async uploadFile(file, parentId) {
                 const metadata = { name: file.name, parents: [parentId] };
-                const fileMetadataResponse = await this.apiCall('drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
+                const fileMetadataResponse = await this.apiCall('https://www.googleapis.com/drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
                 const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
                 await this.apiCall(uploadUrl, 'PATCH', file, { 'Content-Type': file.type || 'application/octet-stream' });
             },
@@ -700,7 +706,6 @@
                 
                 const filesToUpload = ui.fileInput.files;
                 for (const file of filesToUpload) {
-                    // Sửa lỗi: Gọi đúng hàm uploadFile
                     await this.uploadFile(file, docFolder.id);
                 }
                 
