@@ -16,8 +16,22 @@
         .dark ::-webkit-scrollbar-track { background: #2d3748; }
         .dark ::-webkit-scrollbar-thumb { background: #718096; }
         .dark ::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
+        #file-viewer-iframe {
+            width: 100%;
+            height: 70vh;
+            border: 1px solid #e5e7eb;
+        }
+        .dark #file-viewer-iframe {
+            border-color: #4a5568;
+        }
+        .file-item.selected {
+            background-color: #eef2ff;
+        }
+        .dark .file-item.selected {
+            background-color: #3730a3;
+        }
     </style>
-    <!-- BƯỚC 2.1: THÊM FIREBASE SDKs -->
+    <!-- Thư viện Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
@@ -86,7 +100,7 @@
                                 <th scope="col" class="py-3 px-6">Tên Văn bản / Trích yếu</th>
                                 <th scope="col" class="py-3 px-6">Số/Ký hiệu</th>
                                 <th scope="col" class="py-3 px-6">Ngày Ban hành</th>
-                                <th scope="col" class="py-3 px-6">Loại VB</th>
+                                <th scope="col" class="py-3 px-6">Tệp đính kèm</th>
                                 <th scope="col" class="py-3 px-6">Trạng thái</th>
                                 <th scope="col" class="py-3 px-6 rounded-r-lg">Hành động</th>
                             </tr>
@@ -98,7 +112,7 @@
         </main>
     </div>
     
-    <!-- Modals -->
+    <!-- Modal Thêm/Sửa Văn bản -->
     <div id="document-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4">
             <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
@@ -148,6 +162,7 @@
         </div>
     </div>
 
+    <!-- Modal Quản lý Năm học -->
     <div id="school-year-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
              <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
@@ -167,8 +182,35 @@
         </div>
     </div>
     
+    <!-- MODAL MỚI: TRÌNH XEM FILE -->
+    <div id="file-viewer-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl h-[90vh] mx-4 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b dark:border-gray-700 flex-shrink-0">
+                <h3 id="file-viewer-title" class="text-lg font-semibold text-gray-900 dark:text-white">Các tệp đính kèm</h3>
+                <button id="close-viewer-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="flex flex-grow overflow-hidden">
+                <!-- Danh sách file -->
+                <div class="w-1/4 p-4 border-r dark:border-gray-700 overflow-y-auto">
+                    <h4 class="text-sm font-semibold mb-3">Danh sách tệp</h4>
+                    <ul id="file-list" class="space-y-2">
+                        <!-- File items will be injected here -->
+                    </ul>
+                </div>
+                <!-- Khung xem file -->
+                <div class="w-3/4 p-4 flex flex-col">
+                    <div id="viewer-placeholder" class="flex-grow flex items-center justify-center text-gray-500">
+                        <p>Chọn một tệp từ danh sách để xem trước.</p>
+                    </div>
+                    <iframe id="file-viewer-iframe" class="hidden" src="about:blank"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <script>
-    // BƯỚC 2.2: KẾT NỐI FIREBASE
+    // --- KHỞI TẠO FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
       authDomain: "quanlyvanban-40a9d.firebaseapp.com",
@@ -177,19 +219,16 @@
       messagingSenderId: "856857772073",
       appId: "1:856857772073:web:d09c4b1deead0702f61c38"
     };
-
-    // Khởi tạo Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    let currentUserProfile = null; // Biến lưu thông tin người dùng (quan trọng)
-    let unsubscribeDocuments = null; // Biến để ngắt kết nối real-time khi cần
+    let currentUserProfile = null;
+    let unsubscribeDocuments = null; 
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- APP LOGIC ---
+        // --- CÁC BIẾN VÀ THAM CHIẾU UI ---
         const GAPI_CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
         const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
         const REDIRECT_URI = `${window.location.origin}/popup.html`;
-
         let googleAuthToken = null;
         
         const ui = {
@@ -215,14 +254,15 @@
             fileInput: document.getElementById('file_input'),
             modalTitle: document.getElementById('modal-title'),
             docFirestoreId: document.getElementById('doc-firestore-id'),
+            fileViewerModal: document.getElementById('file-viewer-modal'),
+            closeViewerBtn: document.getElementById('close-viewer-btn'),
+            fileViewerTitle: document.getElementById('file-viewer-title'),
+            fileList: document.getElementById('file-list'),
+            viewerPlaceholder: document.getElementById('viewer-placeholder'),
+            fileViewerIframe: document.getElementById('file-viewer-iframe'),
         };
-
-        const storageKeys = {
-            // Không dùng localStorage nữa, nhưng giữ lại để tham khảo
-            token: 'google_auth_token_v3'
-        };
-
-        // --- Authentication ---
+        
+        // --- LOGIC XÁC THỰC ---
         function updateAuthUI(isLoggedIn) {
             ui.authBtn.classList.toggle('hidden', isLoggedIn);
             ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
@@ -242,9 +282,9 @@
                 });
                 if (!response.ok) throw new Error('Failed to fetch user profile.');
                 const profile = await response.json();
-                currentUserProfile = profile; // LƯU PROFILE USER LẠI
+                currentUserProfile = profile;
                 ui.userName.textContent = `Xin chào, ${profile.name || profile.email}`;
-                renderYears(); // TẢI DỮ LIỆU SAU KHI ĐĂNG NHẬP
+                renderYears();
             } catch (error) {
                 console.error("Error fetching user profile:", error);
                 ui.userName.textContent = 'Lỗi xác thực';
@@ -271,14 +311,14 @@
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                 }).finally(() => {
                     googleAuthToken = null;
-                    localStorage.removeItem(storageKeys.token);
+                    localStorage.removeItem('google_auth_token_v3');
                     updateAuthUI(false);
                 });
             }
         }
         
         function checkTokenOnLoad() {
-            const storedToken = localStorage.getItem(storageKeys.token);
+            const storedToken = localStorage.getItem('google_auth_token_v3');
             if (storedToken) {
                 googleAuthToken = JSON.parse(storedToken);
                 updateAuthUI(true);
@@ -295,34 +335,27 @@
                 const token = Object.fromEntries(params.entries());
                 if (token.access_token) {
                     googleAuthToken = token;
-                    localStorage.setItem(storageKeys.token, JSON.stringify(token));
+                    localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
                     updateAuthUI(true);
                     getUserProfile();
                 }
              }
         });
 
-        // --- BƯỚC 2.4: THAY THẾ LOGIC DỮ LIỆU BẰNG FIRESTORE ---
-
+        // --- LOGIC DỮ LIỆU VỚI FIRESTORE ---
         function getCollectionRef(collectionName) {
             if (!currentUserProfile) return null;
-            // Dữ liệu của mỗi người dùng được lưu riêng biệt
             return db.collection('users').doc(currentUserProfile.sub).collection(collectionName);
         }
 
         async function renderYears() {
             const yearsRef = getCollectionRef('schoolYears');
-            if (!yearsRef) {
-                ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
-                ui.yearList.innerHTML = '';
-                return;
-            }
-
-            // Sử dụng onSnapshot để lắng nghe thay đổi của năm học
+            if (!yearsRef) return;
+            
             yearsRef.orderBy('name', 'desc').onSnapshot(snapshot => {
                 const years = snapshot.docs.map(doc => doc.data().name);
 
-                if (years.length === 0 && snapshot.metadata.hasPendingWrites === false) {
+                if (years.length === 0 && !snapshot.metadata.hasPendingWrites) {
                     const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
                     const batch = db.batch();
                     defaultYears.forEach(year => {
@@ -351,7 +384,7 @@
         }
         
         function renderDocuments() {
-            if (unsubscribeDocuments) unsubscribeDocuments(); // Hủy listener cũ
+            if (unsubscribeDocuments) unsubscribeDocuments();
 
             const docsRef = getCollectionRef('documents');
             if (!docsRef) {
@@ -384,16 +417,21 @@
                     return;
                 }
                 docs.forEach((doc, index) => {
+                    const fileCount = doc.driveData?.files?.length || 0;
                     ui.docTableBody.innerHTML += `
-                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer view-files-row" data-doc-id="${doc.firestoreId}">
                             <td class="py-4 px-6">${index + 1}</td>
                             <th class="py-4 px-6 font-medium text-gray-900 dark:text-white">${doc.name || ''}</th>
                             <td class="py-4 px-6">${doc.id || ''}</td>
                             <td class="py-4 px-6">${formatDate(doc.date)}</td>
-                            <td class="py-4 px-6">${doc.type || ''}</td>
+                            <td class="py-4 px-6 text-sm">
+                                <span class="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                    <i data-lucide="paperclip" class="w-3 h-3 mr-1"></i>
+                                    ${fileCount} tệp
+                                </span>
+                            </td>
                             <td class="py-4 px-6">${doc.status || ''}</td>
                             <td class="py-4 px-6 flex items-center space-x-2">
-                                <a href="${doc.folderUrl || '#'}" target="_blank" class="p-2 text-blue-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Mở thư mục"><i data-lucide="folder" class="w-4 h-4"></i></a>
                                 <button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa"><i data-lucide="edit" class="w-4 h-4"></i></button>
                                 <button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </td>
@@ -403,6 +441,51 @@
             }, error => {
                 console.error("Error listening to documents: ", error);
             });
+        }
+        
+        async function openFileViewer(docId) {
+            const docRef = getCollectionRef('documents').doc(docId);
+            const docSnap = await docRef.get();
+            if (!docSnap.exists) {
+                alert('Không tìm thấy văn bản!');
+                return;
+            }
+
+            const docData = docSnap.data();
+            const files = docData.driveData?.files || [];
+
+            ui.fileViewerTitle.textContent = `Tệp đính kèm cho: ${docData.name}`;
+            ui.fileList.innerHTML = '';
+            ui.viewerPlaceholder.classList.remove('hidden');
+            ui.fileViewerIframe.classList.add('hidden');
+            ui.fileViewerIframe.src = 'about:blank';
+
+            if (files.length === 0) {
+                ui.fileList.innerHTML = '<li class="text-sm text-gray-500">Không có tệp nào.</li>';
+            } else {
+                files.forEach((file, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-sm';
+                    li.innerHTML = `
+                        <img src="${file.iconLink}" class="w-4 h-4 mr-2" alt="icon">
+                        <span class="flex-grow">${file.name}</span>
+                    `;
+                    li.addEventListener('click', () => {
+                        document.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
+                        li.classList.add('selected');
+                        previewFile(file);
+                    });
+                    ui.fileList.appendChild(li);
+                });
+            }
+            ui.fileViewerModal.classList.remove('hidden');
+        }
+
+        function previewFile(file) {
+            const embedUrl = `https://drive.google.com/file/d/${file.id}/preview`;
+            ui.viewerPlaceholder.classList.add('hidden');
+            ui.fileViewerIframe.src = embedUrl;
+            ui.fileViewerIframe.classList.remove('hidden');
         }
 
         function formatDate(dateString) {
@@ -418,7 +501,7 @@
             return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
         }
 
-        // --- Event Listeners ---
+        // --- EVENT LISTENERS ---
         ui.authBtn.addEventListener('click', handleAuthClick);
         ui.signOutBtn.addEventListener('click', handleSignOutClick);
         ui.themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
@@ -435,6 +518,10 @@
         ui.cancelDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
         ui.manageYearsBtn.addEventListener('click', () => ui.yearModal.classList.remove('hidden'));
         ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
+        ui.closeViewerBtn.addEventListener('click', () => {
+            ui.fileViewerModal.classList.add('hidden');
+            ui.fileViewerIframe.src = 'about:blank';
+        });
         
         ui.addYearBtn.addEventListener('click', async () => {
             const newYear = ui.newYearInput.value.trim();
@@ -472,32 +559,41 @@
         });
         
         ui.docTableBody.addEventListener('click', async (e) => {
+            const row = e.target.closest('.view-files-row');
             const deleteBtn = e.target.closest('.delete-doc-btn');
             const editBtn = e.target.closest('.edit-doc-btn');
+            
+            if (deleteBtn || editBtn) {
+                e.stopPropagation();
+                const docId = (deleteBtn || editBtn).dataset.docId;
 
-            if (deleteBtn) {
-                if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
-                    const docId = deleteBtn.dataset.docId;
-                    getCollectionRef('documents').doc(docId).delete();
+                if (deleteBtn) {
+                    if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
+                        getCollectionRef('documents').doc(docId).delete();
+                    }
                 }
+
+                if (editBtn) {
+                    const docRef = getCollectionRef('documents').doc(docId);
+                    const docSnap = await docRef.get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        document.getElementById('doc-name').value = data.name || '';
+                        document.getElementById('doc-id').value = data.id || '';
+                        document.getElementById('doc-date').value = data.date || '';
+                        document.getElementById('doc-type').value = data.type || '';
+                        document.getElementById('doc-status').value = data.status || '';
+                        ui.docFirestoreId.value = docId;
+                        ui.modalTitle.textContent = 'Chỉnh sửa Văn bản';
+                        ui.fileInput.required = false;
+                        ui.docModal.classList.remove('hidden');
+                    }
+                }
+                return;
             }
 
-            if (editBtn) {
-                const docId = editBtn.dataset.docId;
-                const docRef = getCollectionRef('documents').doc(docId);
-                const docSnap = await docRef.get();
-                if (docSnap.exists) {
-                    const data = docSnap.data();
-                    document.getElementById('doc-name').value = data.name || '';
-                    document.getElementById('doc-id').value = data.id || '';
-                    document.getElementById('doc-date').value = data.date || '';
-                    document.getElementById('doc-type').value = data.type || '';
-                    document.getElementById('doc-status').value = data.status || '';
-                    ui.docFirestoreId.value = docId;
-                    ui.modalTitle.textContent = 'Chỉnh sửa Văn bản';
-                    ui.fileInput.required = false;
-                    ui.docModal.classList.remove('hidden');
-                }
+            if (row) {
+                openFileViewer(row.dataset.docId);
             }
         });
         
@@ -531,16 +627,14 @@
                 const existingDocId = ui.docFirestoreId.value;
 
                 if (ui.fileInput.files.length > 0) {
-                     docData.folderUrl = await uploadManager.startUpload();
+                     docData.driveData = await uploadManager.startUpload();
                 }
 
                 const docsRef = getCollectionRef('documents');
 
                 if (existingDocId) {
-                    // Cập nhật văn bản đã có
                     await docsRef.doc(existingDocId).update(docData);
                 } else {
-                    // Thêm văn bản mới
                     docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     await docsRef.add(docData);
                 }
@@ -557,7 +651,7 @@
             }
         });
         
-        // --- SỬA LỖI UPLOAD GOOGLE DRIVE ---
+        // --- GOOGLE DRIVE API LOGIC ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
@@ -586,49 +680,40 @@
                 return this.apiCall(postPath, 'POST', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), {'Content-Type': 'application/json'});
             },
             async uploadFile(file, parentId) {
-                // 1. Create file metadata to get a fileId
-                const metadata = {
-                    name: file.name,
-                    parents: [parentId]
-                };
-                const fileMetadataResponse = await this.apiCall(
-                    'drive/v3/files', 
-                    'POST', 
-                    JSON.stringify(metadata), 
-                    { 'Content-Type': 'application/json' }
-                );
-                
-                // 2. Upload file content to the created fileId
-                const uploadUrl = `upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
-                await this.apiCall(
-                    uploadUrl,
-                    'PATCH',
-                    file, // The browser fetch API can handle File objects directly
-                    { 'Content-Type': file.type || 'application/octet-stream' }
-                );
+                const metadata = { name: file.name, parents: [parentId] };
+                const fileMetadataResponse = await this.apiCall('https://www.googleapis.com/drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
+                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
+                await this.apiCall(uploadUrl, 'PATCH', file, { 'Content-Type': file.type || 'application/octet-stream' });
             },
             async startUpload() {
                 const docName = document.getElementById('doc-name').value.trim();
                 const schoolYear = ui.schoolYearSelect.value;
                 const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                const docFolderName = slugify(docName) + '-' + Date.now(); // Thêm timestamp để tránh trùng lặp
+                const docFolderName = slugify(docName) + '-' + Date.now();
 
                 const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
                 const yearFolder = await this.findOrCreateFolder(schoolYear, qlvbFolder.id);
                 const monthFolder = await this.findOrCreateFolder(currentMonth, yearFolder.id);
                 const docFolder = await this.findOrCreateFolder(docFolderName, monthFolder.id);
                 
-                const files = ui.fileInput.files;
-                for (const file of files) {
+                const filesToUpload = ui.fileInput.files;
+                for (const file of filesToUpload) {
                     await this.uploadFile(file, docFolder.id);
                 }
-                return docFolder.webViewLink;
+                
+                const listPath = `drive/v3/files?q='${docFolder.id}' in parents and trashed=false&fields=files(id, name, iconLink, webViewLink, webContentLink)`;
+                const uploadedFilesData = await this.apiCall(listPath, 'GET');
+
+                return {
+                    folderId: docFolder.id,
+                    folderUrl: docFolder.webViewLink,
+                    files: uploadedFilesData.files || []
+                };
             }
         };
 
-        // --- Initial Load ---
+        // --- INITIAL LOAD ---
         checkTokenOnLoad();
-        // renderYears() sẽ được gọi bên trong checkTokenOnLoad sau khi có profile user
     });
     </script>
 </body>
