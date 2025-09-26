@@ -79,22 +79,27 @@
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
                  <!-- Controls -->
                 <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
-                    <div class="w-full md:w-auto flex items-center space-x-2">
-                        <div class="flex-grow">
-                            <label for="school-year-select" class="sr-only">Năm học</label>
-                            <select id="school-year-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
+                    <div class="w-full md:w-auto flex-grow flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                        <div class="w-full sm:w-1/3 flex items-center space-x-2">
+                            <select id="school-year-select" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
+                            <button id="manage-years-btn" title="Quản lý năm học" class="p-2.5 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-600 flex-shrink-0">
+                                <i data-lucide="settings-2" class="w-5 h-5"></i>
+                            </button>
                         </div>
-                        <button id="manage-years-btn" title="Quản lý năm học" class="p-2.5 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-600 flex-shrink-0">
-                            <i data-lucide="settings-2" class="w-5 h-5"></i>
-                        </button>
-                        <div class="relative flex-grow">
+                        <!-- BỘ LỌC MỚI -->
+                        <div class="w-full sm:w-1/3">
+                            <select id="doc-type-filter" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                                <!-- Options will be added by JS -->
+                            </select>
+                        </div>
+                        <div class="relative w-full sm:w-1/3 flex-grow">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <i data-lucide="search" class="w-5 h-5 text-gray-400"></i>
                             </div>
                             <input type="search" id="search-input" class="w-full p-2.5 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Tìm kiếm văn bản...">
                         </div>
                     </div>
-                    <button id="add-document-btn" class="w-full md:w-auto flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
+                    <button id="add-document-btn" class="w-full md:w-auto flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800 md:ml-4 flex-shrink-0">
                         <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
                         Thêm Văn bản Mới
                     </button>
@@ -268,9 +273,10 @@
             fileList: document.getElementById('file-list'),
             viewerPlaceholder: document.getElementById('viewer-placeholder'),
             fileViewerIframe: document.getElementById('file-viewer-iframe'),
+            docTypeFilter: document.getElementById('doc-type-filter'),
         };
         
-        // --- LOGIC XÁC THỰC ---
+        // --- LOGIC XÁC THỰC VÀ GIAO DIỆN ---
         function updateAuthUI(isLoggedIn) {
             ui.authBtn.classList.toggle('hidden', isLoggedIn);
             ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
@@ -391,6 +397,15 @@
             });
         }
         
+        function populateDocTypeFilter() {
+            const docTypes = ['Tất cả loại', 'Kế hoạch', 'Báo cáo', 'Quyết định', 'Thông báo', 'Công văn', 'Thông tư', 'Hướng dẫn', 'Quy định', 'Nghị quyết', 'Nghị định'];
+            ui.docTypeFilter.innerHTML = '';
+            docTypes.forEach(type => {
+                const option = new Option(type, type === 'Tất cả loại' ? 'all' : type);
+                ui.docTypeFilter.add(option);
+            });
+        }
+        
         function renderDocuments() {
             if (unsubscribeDocuments) unsubscribeDocuments();
 
@@ -401,13 +416,19 @@
             }
 
             const selectedYear = ui.schoolYearSelect.value;
+            const selectedType = ui.docTypeFilter.value;
+            const searchTerm = ui.searchInput.value.toLowerCase();
+            
             if (!selectedYear) {
                  ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng tạo năm học trước...</td></tr>`;
                 return;
             }
-            const searchTerm = ui.searchInput.value.toLowerCase();
 
-            let query = docsRef.where('schoolYear', '==', selectedYear).orderBy('createdAt', 'desc');
+            let query = docsRef.where('schoolYear', '==', selectedYear);
+            if (selectedType !== 'all') {
+                query = query.where('type', '==', selectedType);
+            }
+            query = query.orderBy('createdAt', 'desc');
             
             unsubscribeDocuments = query.onSnapshot(snapshot => {
                 let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
@@ -421,7 +442,7 @@
 
                 ui.docTableBody.innerHTML = '';
                 if (docs.length === 0) {
-                    ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Chưa có dữ liệu cho năm học này...</td></tr>`;
+                    ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Không có dữ liệu phù hợp...</td></tr>`;
                     return;
                 }
                 docs.forEach((doc, index) => {
@@ -454,7 +475,8 @@
                 });
                 lucide.createIcons();
             }, error => {
-                console.error("Error listening to documents: ", error);
+                console.error("Firestore Error: ", error);
+                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Đã xảy ra lỗi. Vui lòng kiểm tra Console (F12) để tạo Index cần thiết.</td></tr>`;
             });
         }
         
@@ -522,14 +544,13 @@
             const p = new RegExp(a.split('').join('|'), 'g');
             return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
         }
-
+        
         function convertToUnaccented(text) {
             text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             text = text.replace(/Đ/g, 'D').replace(/đ/g, 'd');
             return text;
         }
 
-        // --- HÀM MỚI ĐỂ KHÓA/MỞ KHÓA VĂN BẢN ---
         async function toggleLockStatus(docId, currentStatus) {
             const docRef = getCollectionRef('documents').doc(docId);
             try {
@@ -646,6 +667,7 @@
         
         ui.schoolYearSelect.addEventListener('change', renderDocuments);
         ui.searchInput.addEventListener('input', renderDocuments);
+        ui.docTypeFilter.addEventListener('change', renderDocuments);
         
         ui.saveBtn.addEventListener('click', async () => {
             if (!ui.docForm.checkValidity()) {
@@ -683,7 +705,7 @@
                     await docsRef.doc(existingDocId).update(docData);
                 } else {
                     docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    docData.isLocked = false; // Mặc định văn bản mới sẽ không bị khóa
+                    docData.isLocked = false;
                     await docsRef.add(docData);
                 }
                 
@@ -767,6 +789,7 @@
         };
 
         // --- INITIAL LOAD ---
+        populateDocTypeFilter();
         checkTokenOnLoad();
     });
     </script>
