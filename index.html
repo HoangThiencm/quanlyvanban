@@ -318,29 +318,36 @@
                 return;
             }
 
-            const snapshot = await yearsRef.orderBy('name', 'desc').get();
-            const years = snapshot.docs.map(doc => doc.data().name);
+            // Sử dụng onSnapshot để lắng nghe thay đổi của năm học
+            yearsRef.orderBy('name', 'desc').onSnapshot(snapshot => {
+                const years = snapshot.docs.map(doc => doc.data().name);
 
-            if (years.length === 0) {
-                const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
-                const batch = db.batch();
-                defaultYears.forEach(year => {
-                    const docRef = yearsRef.doc();
-                    batch.set(docRef, { name: year });
+                if (years.length === 0 && snapshot.metadata.hasPendingWrites === false) {
+                    const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
+                    const batch = db.batch();
+                    defaultYears.forEach(year => {
+                        const docRef = yearsRef.doc();
+                        batch.set(docRef, { name: year });
+                    });
+                    batch.commit();
+                    return;
+                }
+
+                const currentYear = ui.schoolYearSelect.value;
+                ui.schoolYearSelect.innerHTML = '';
+                ui.yearList.innerHTML = '';
+                years.forEach(year => {
+                    ui.schoolYearSelect.add(new Option(year, year));
+                    ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
                 });
-                await batch.commit();
-                renderYears(); 
-                return;
-            }
+                
+                if (currentYear && years.includes(currentYear)) {
+                    ui.schoolYearSelect.value = currentYear;
+                }
 
-            ui.schoolYearSelect.innerHTML = '';
-            ui.yearList.innerHTML = '';
-            years.forEach(year => {
-                ui.schoolYearSelect.add(new Option(year, year));
-                ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
+                lucide.createIcons();
+                renderDocuments();
             });
-            lucide.createIcons();
-            renderDocuments();
         }
         
         function renderDocuments() {
@@ -393,6 +400,8 @@
                         </tr>`;
                 });
                 lucide.createIcons();
+            }, error => {
+                console.error("Error listening to documents: ", error);
             });
         }
 
@@ -548,7 +557,7 @@
             }
         });
         
-        // --- Google Drive API Logic ---
+        // --- SỬA LỖI UPLOAD GOOGLE DRIVE ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
@@ -561,7 +570,11 @@
                     const errorData = await response.json();
                     throw new Error(errorData.error.message || 'Lỗi không xác định từ Google API.');
                 }
-                return response.json();
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return response.json();
+                } 
+                return response;
             },
             async findOrCreateFolder(name, parentId = 'root') {
                 const nameEsc = name.replace(/'/g, "\\'");
@@ -573,16 +586,26 @@
                 return this.apiCall(postPath, 'POST', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), {'Content-Type': 'application/json'});
             },
             async uploadFile(file, parentId) {
-                const metadata = { name: file.name, parents: [parentId] };
-                const path = 'upload/drive/v3/files?uploadType=media';
-                const headers = { 'Content-Type': file.type || 'application/octet-stream' };
-
-                // Create metadata first
-                const fileMetadata = await this.apiCall('drive/v3/files', 'POST', JSON.stringify(metadata), {'Content-Type': 'application/json'});
+                // 1. Create file metadata to get a fileId
+                const metadata = {
+                    name: file.name,
+                    parents: [parentId]
+                };
+                const fileMetadataResponse = await this.apiCall(
+                    'drive/v3/files', 
+                    'POST', 
+                    JSON.stringify(metadata), 
+                    { 'Content-Type': 'application/json' }
+                );
                 
-                // Then upload the file content
-                await this.apiCall(`${path}&fileId=${fileMetadata.id}`, 'PATCH', file, headers);
-                return fileMetadata;
+                // 2. Upload file content to the created fileId
+                const uploadUrl = `upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
+                await this.apiCall(
+                    uploadUrl,
+                    'PATCH',
+                    file, // The browser fetch API can handle File objects directly
+                    { 'Content-Type': file.type || 'application/octet-stream' }
+                );
             },
             async startUpload() {
                 const docName = document.getElementById('doc-name').value.trim();
@@ -610,3 +633,4 @@
     </script>
 </body>
 </html>
+
