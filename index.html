@@ -44,7 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script> <!-- Thêm Storage -->
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
@@ -56,7 +56,7 @@
                     <div class="flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         <div class="ml-4">
-                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản cá nhân - Hoàng Tấn Thiên</h1>
+                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Hệ thống Quản lý Văn bản cá nhân</h1>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -247,15 +247,6 @@
     let unsubscribeDocuments = null; 
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- ADD THIS PART FOR REDIRECT HANDLING ---
-        auth.getRedirectResult().catch(error => {
-            console.error("Lỗi đăng nhập Google sau khi redirect:", error);
-            // Avoid showing generic internal errors to the user
-            if (error.code !== 'auth/internal-error') { 
-                alert(`Đăng nhập thất bại: ${error.message}`);
-            }
-        });
-
         // --- UI REFERENCES ---
         const ui = {
             authBtn: document.getElementById('authorize_button'),
@@ -301,7 +292,7 @@
                 ui.authBtn.classList.add('hidden');
                 ui.signOutBtn.classList.remove('hidden');
                 ui.userName.textContent = `Xin chào, ${user.displayName || user.email}`;
-                renderYears(); 
+                renderYears(); // Load data after user is confirmed
             } else {
                 // User is signed out.
                 ui.authBtn.classList.remove('hidden');
@@ -314,7 +305,12 @@
 
         function handleGoogleSignIn() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithRedirect(provider);
+            // Add scope for Google Drive
+            provider.addScope('https://www.googleapis.com/auth/drive.file');
+            auth.signInWithPopup(provider).catch(error => {
+                console.error("Lỗi đăng nhập Google:", error);
+                alert(`Đăng nhập thất bại: ${error.message}`);
+            });
         }
 
         function handleSignOut() {
@@ -481,6 +477,7 @@
                            <i data-lucide="download" class="w-4 h-4"></i>
                         </a>
                     `;
+                    // Simple preview for images, others can be downloaded.
                     if (file.type.startsWith('image/')) {
                        li.addEventListener('click', (e) => {
                             if (e.target.closest('.download-btn')) return;
@@ -528,6 +525,7 @@
             ui.docModal.classList.remove('hidden');
         });
         
+        // Modal close buttons
         [ui.closeDocModalBtn, ui.cancelDocModalBtn].forEach(btn => btn.addEventListener('click', () => ui.docModal.classList.add('hidden')));
         ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
         ui.closeViewerBtn.addEventListener('click', () => {
@@ -566,6 +564,7 @@
 
                     const batch = db.batch();
                     yearQuery.forEach(doc => batch.delete(doc.ref));
+                    // Also delete associated files in storage
                     for(const doc of docQuery.docs) {
                         const docData = doc.data();
                         if(docData.files && docData.files.length > 0) {
@@ -636,6 +635,7 @@
             }
         });
         
+        // Filters
         [ui.schoolYearSelect, ui.searchInput, ui.docTypeFilter, ui.docMonthFilter].forEach(el => {
             const eventType = el.tagName === 'INPUT' ? 'input' : 'change';
             el.addEventListener(eventType, renderDocuments);
@@ -736,66 +736,6 @@
             return fileData;
         }
 
-        // --- ONE-TIME DATA MIGRATION SCRIPT ---
-        ui.migrateDataBtn.addEventListener('click', async () => {
-            // !!! QUAN TRỌNG: Thay thế các giá trị dưới đây bằng ID của bạn !!!
-            const OLD_USER_ID = "116487284212009252227"; // Thay bằng ID cũ (chuỗi số dài)
-            const NEW_USER_ID = "CEqjPt12KCPEdJ5UVryJ16dk0E25r2"; // Thay bằng ID mới (User UID)
-
-            if (OLD_USER_ID === "PUT_YOUR_OLD_ID_HERE" || NEW_USER_ID === "PUT_YOUR_NEW_UID_HERE") {
-                alert("Vui lòng mở file index.html và điền ID cũ và ID mới của bạn vào trong đoạn mã 'MIGRATION SCRIPT' trước!");
-                return;
-            }
-
-            if (!confirm("Bạn có chắc chắn muốn di chuyển dữ liệu cũ sang tài khoản mới? Việc này chỉ nên thực hiện MỘT LẦN DUY NHẤT.")) {
-                return;
-            }
-
-            ui.migrateDataBtn.disabled = true;
-            ui.migrateDataBtn.textContent = "Đang di chuyển...";
-
-            try {
-                const oldUserRef = db.collection('users').doc(OLD_USER_ID);
-                const newUserRef = db.collection('users').doc(NEW_USER_ID);
-                const batch = db.batch();
-
-                // Di chuyển 'schoolYears'
-                console.log("Bắt đầu di chuyển 'schoolYears'...");
-                const oldYearsSnapshot = await oldUserRef.collection('schoolYears').get();
-                let yearCount = 0;
-                oldYearsSnapshot.forEach(doc => {
-                    const newYearRef = newUserRef.collection('schoolYears').doc(doc.id);
-                    batch.set(newYearRef, doc.data());
-                    yearCount++;
-                });
-                console.log(`Tìm thấy ${yearCount} năm học để di chuyển.`);
-
-                // Di chuyển 'documents'
-                console.log("Bắt đầu di chuyển 'documents'...");
-                const oldDocsSnapshot = await oldUserRef.collection('documents').get();
-                let docCount = 0;
-                oldDocsSnapshot.forEach(doc => {
-                    const newDocRef = newUserRef.collection('documents').doc(doc.id);
-                    batch.set(newDocRef, doc.data());
-                    docCount++;
-                });
-                console.log(`Tìm thấy ${docCount} văn bản để di chuyển.`);
-
-                await batch.commit();
-
-                alert(`Di chuyển thành công! Đã chuyển ${yearCount} năm học và ${docCount} văn bản. Vui lòng tải lại trang để xem dữ liệu.`);
-                ui.migrateDataBtn.textContent = "Hoàn tất Di chuyển!";
-                ui.migrateDataBtn.classList.add("bg-green-500", "hover:bg-green-600");
-                ui.migrateDataBtn.classList.remove("bg-orange-500", "hover:bg-orange-600");
-
-            } catch (error) {
-                console.error("Di chuyển thất bại:", error);
-                alert("Đã xảy ra lỗi khi di chuyển. Vui lòng kiểm tra Console (F12) để biết chi tiết.");
-                ui.migrateDataBtn.textContent = "Di chuyển Thất bại!";
-                ui.migrateDataBtn.disabled = false;
-            }
-        });
-
         // --- INITIAL LOAD ---
         populateDocTypeFilter();
         populateMonthFilter();
@@ -814,5 +754,3 @@
     </script>
 </body>
 </html>
-
-
