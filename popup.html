@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Đang xác thực...</title>
+    <script>
+        window.onload = function() {
+            const payload = {
+                hash: window.location.hash,
+                origin: window.location.origin
+            };
+            if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({ type: 'oauth_callback', payload: payload }, payload.origin);
+            }
+            window.close();
+        };
+    </script>
+</head>
+<body>
+    <p>Đang xử lý xác thực, vui lòng chờ...</p>
+</body>
+</html>
