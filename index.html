@@ -252,7 +252,6 @@
         // --- ADD THIS PART FOR REDIRECT HANDLING ---
         auth.getRedirectResult().catch(error => {
             console.error("Lỗi đăng nhập Google sau khi redirect:", error);
-            // Avoid showing generic internal errors to the user
             if (error.code !== 'auth/internal-error') { 
                 alert(`Đăng nhập thất bại: ${error.message}`);
             }
@@ -293,22 +292,23 @@
             uploadProgressContainer: document.getElementById('upload-progress-container'),
             uploadProgressBar: document.getElementById('upload-progress-bar'),
             uploadProgressText: document.getElementById('upload-progress-text'),
+            migrateDataBtn: document.getElementById('migrate-data-btn'),
         };
         
         // --- AUTHENTICATION LOGIC ---
         auth.onAuthStateChanged(user => {
             currentUser = user;
             if (user) {
-                // User is signed in.
                 ui.authBtn.classList.add('hidden');
                 ui.signOutBtn.classList.remove('hidden');
                 ui.userName.textContent = `Xin chào, ${user.displayName || user.email}`;
+                if (ui.migrateDataBtn) ui.migrateDataBtn.classList.remove('hidden');
                 renderYears(); 
             } else {
-                // User is signed out.
                 ui.authBtn.classList.remove('hidden');
                 ui.signOutBtn.classList.add('hidden');
                 ui.userName.textContent = '';
+                if (ui.migrateDataBtn) ui.migrateDataBtn.classList.add('hidden');
                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
                 ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
             }
