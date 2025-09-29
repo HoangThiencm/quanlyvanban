@@ -213,687 +213,599 @@
     </div>
 
 
-    <script>
-    // --- KHỞI TẠO FIREBASE ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
-      authDomain: "quanlyvanban-40a9d.firebaseapp.com",
-      projectId: "quanlyvanban-40a9d",
-      storageBucket: "quanlyvanban-40a9d.firebasestorage.app",
-      messagingSenderId: "856857772073",
-      appId: "1:856857772073:web:d09c4b1deead0702f61c38"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    let currentUserProfile = null;
-    let unsubscribeDocuments = null; 
+	<script>
+		// --- KHỞI TẠO FIREBASE ---
+		const firebaseConfig = {
+		  apiKey: "AIzaSyA5sGFFmEh-itduCmJEbi53CsrHxWaxeQc",
+		  authDomain: "quanlyvanban-40a9d.firebaseapp.com",
+		  projectId: "quanlyvanban-40a9d",
+		  storageBucket: "quanlyvanban-40a9d.firebasestorage.app",
+		  messagingSenderId: "856857772073",
+		  appId: "1:856857772073:web:d09c4b1deead0702f61c38"
+		};
+		firebase.initializeApp(firebaseConfig);
+		const db = firebase.firestore();
+		let currentUserProfile = null;
+		let unsubscribeDocuments = null; 
 
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- CÁC BIẾN VÀ THAM CHIẾU UI ---
-        const GAPI_CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
-        const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
-        const REDIRECT_URI = `${window.location.origin}/popup.html`;
-        let googleAuthToken = null;
-        let refreshTimer = null; // Biến cho bộ đếm thời gian làm mới token
-        
-        const ui = {
-            authBtn: document.getElementById('authorize_button'),
-            signOutBtn: document.getElementById('signout_button'),
-            userName: document.getElementById('user-name'),
-            themeToggle: document.getElementById('theme-toggle'),
-            addDocBtn: document.getElementById('add-document-btn'),
-            schoolYearSelect: document.getElementById('school-year-select'),
-            yearList: document.getElementById('year-list'),
-            newYearInput: document.getElementById('new-year-input'),
-            addYearBtn: document.getElementById('add-year-btn'),
-            manageYearsBtn: document.getElementById('manage-years-btn'),
-            docModal: document.getElementById('document-modal'),
-            yearModal: document.getElementById('school-year-modal'),
-            closeDocModalBtn: document.getElementById('close-modal-btn'),
-            cancelDocModalBtn: document.getElementById('cancel-modal-btn'),
-            closeYearModalBtn: document.getElementById('close-year-modal-btn'),
-            docForm: document.getElementById('document-form'),
-            saveBtn: document.getElementById('save-btn'),
-            docTableBody: document.getElementById('document-table-body'),
-            searchInput: document.getElementById('search-input'),
-            fileInput: document.getElementById('file_input'),
-            modalTitle: document.getElementById('modal-title'),
-            docFirestoreId: document.getElementById('doc-firestore-id'),
-            fileViewerModal: document.getElementById('file-viewer-modal'),
-            closeViewerBtn: document.getElementById('close-viewer-btn'),
-            fileViewerTitle: document.getElementById('file-viewer-title'),
-            fileList: document.getElementById('file-list'),
-            viewerPlaceholder: document.getElementById('viewer-placeholder'),
-            fileViewerIframe: document.getElementById('file-viewer-iframe'),
-            docTypeFilter: document.getElementById('doc-type-filter'),
-            docMonthFilter: document.getElementById('doc-month-filter'),
-        };
-        
-        // --- LOGIC XÁC THỰC VÀ GIAO DIỆN ---
-        function updateAuthUI(isLoggedIn) {
-            ui.authBtn.classList.toggle('hidden', isLoggedIn);
-            ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
-            if (!isLoggedIn) {
-                 ui.userName.textContent = '';
-                 currentUserProfile = null;
-                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
-                 ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
-            }
-        }
+		document.addEventListener('DOMContentLoaded', () => {
+			// --- CÁC BIẾN VÀ THAM CHIẾU UI ---
+			const GAPI_CLIENT_ID = '188209595563-o84nk4siirudogbilev689nedlbciuhl.apps.googleusercontent.com';
+			const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
+			const REDIRECT_URI = `${window.location.origin}/popup.html`;
+			let googleAuthToken = null;
+			let refreshTimer = null;
+			
+			const ui = {
+				authBtn: document.getElementById('authorize_button'),
+				signOutBtn: document.getElementById('signout_button'),
+				userName: document.getElementById('user-name'),
+				themeToggle: document.getElementById('theme-toggle'),
+				addDocBtn: document.getElementById('add-document-btn'),
+				schoolYearSelect: document.getElementById('school-year-select'),
+				yearList: document.getElementById('year-list'),
+				newYearInput: document.getElementById('new-year-input'),
+				addYearBtn: document.getElementById('add-year-btn'),
+				manageYearsBtn: document.getElementById('manage-years-btn'),
+				docModal: document.getElementById('document-modal'),
+				yearModal: document.getElementById('school-year-modal'),
+				closeDocModalBtn: document.getElementById('close-modal-btn'),
+				cancelDocModalBtn: document.getElementById('cancel-modal-btn'),
+				closeYearModalBtn: document.getElementById('close-year-modal-btn'),
+				docForm: document.getElementById('document-form'),
+				saveBtn: document.getElementById('save-btn'),
+				docTableBody: document.getElementById('document-table-body'),
+				searchInput: document.getElementById('search-input'),
+				fileInput: document.getElementById('file_input'),
+				modalTitle: document.getElementById('modal-title'),
+				docFirestoreId: document.getElementById('doc-firestore-id'),
+				fileViewerModal: document.getElementById('file-viewer-modal'),
+				closeViewerBtn: document.getElementById('close-viewer-btn'),
+				fileViewerTitle: document.getElementById('file-viewer-title'),
+				fileList: document.getElementById('file-list'),
+				viewerPlaceholder: document.getElementById('viewer-placeholder'),
+				fileViewerIframe: document.getElementById('file-viewer-iframe'),
+				docTypeFilter: document.getElementById('doc-type-filter'),
+				docMonthFilter: document.getElementById('doc-month-filter'),
+			};
+			
+			// --- LOGIC XÁC THỰC VÀ GIAO DIỆN ---
+			function updateAuthUI(isLoggedIn) {
+				ui.authBtn.classList.toggle('hidden', isLoggedIn);
+				ui.signOutBtn.classList.toggle('hidden', !isLoggedIn);
+				if (!isLoggedIn) {
+					 ui.userName.textContent = '';
+					 currentUserProfile = null;
+					 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
+					 ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
+				}
+			}
 
-        async function getUserProfile() {
-            if (!googleAuthToken) return;
-            try {
-                const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                    headers: { 'Authorization': `Bearer ${googleAuthToken.access_token}` }
-                });
-                if (!response.ok) throw new Error('Failed to fetch user profile.');
-                const profile = await response.json();
-                currentUserProfile = profile;
-                ui.userName.textContent = `Xin chào, ${profile.name || profile.email}`;
-                renderYears();
-            } catch (error) {
-                console.error("Error fetching user profile:", error);
-                ui.userName.textContent = 'Lỗi xác thực';
-            }
-        }
+			async function getUserProfile() {
+				if (!googleAuthToken) return;
+				try {
+					const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+						headers: { 'Authorization': `Bearer ${googleAuthToken.access_token}` }
+					});
+					if (!response.ok) throw new Error('Failed to fetch user profile.');
+					const profile = await response.json();
+					currentUserProfile = profile;
+					ui.userName.textContent = `Xin chào, ${profile.name || profile.email}`;
+					renderYears();
+				} catch (error) {
+					console.error("Error fetching user profile:", error);
+					ui.userName.textContent = 'Lỗi xác thực';
+				}
+			}
 
-        function handleAuthClick() {
-            const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
-            const params = {
-                'client_id': GAPI_CLIENT_ID,
-                'redirect_uri': REDIRECT_URI,
-                'response_type': 'token',
-                'scope': GAPI_SCOPES,
-                'include_granted_scopes': 'true',
-            };
-            const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
-            window.open(url, 'oauthPopup', 'width=500,height=600');
-        }
+			function handleAuthClick() {
+				const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+				const params = {
+					'client_id': GAPI_CLIENT_ID,
+					'redirect_uri': REDIRECT_URI,
+					'response_type': 'token',
+					'scope': GAPI_SCOPES,
+					'include_granted_scopes': 'true',
+				};
+				const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
+				window.open(url, 'oauthPopup', 'width=500,height=600');
+			}
 
-        function handleSignOutClick() {
-            if (googleAuthToken) {
-                fetch(`https://oauth2.googleapis.com/revoke?token=${googleAuthToken.access_token}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                }).finally(() => {
-                    googleAuthToken = null;
-                    localStorage.removeItem('google_auth_token_v3');
-                    if (refreshTimer) clearTimeout(refreshTimer); // Hủy lịch làm mới
-                    updateAuthUI(false);
-                });
-            }
-        }
-        
-        function checkTokenOnLoad() {
-            const storedToken = localStorage.getItem('google_auth_token_v3');
-            if (storedToken) {
-                googleAuthToken = JSON.parse(storedToken);
-                updateAuthUI(true);
-                getUserProfile();
-                scheduleSilentRefresh(); // <-- THÊM MỚI: Lên lịch làm mới khi tải trang
-            } else {
-                updateAuthUI(false);
-            }
-        }
-        
-        window.addEventListener('message', (event) => {
-             if (event.origin !== window.location.origin) return;
-             if (event.data?.type === 'oauth_callback') {
-                const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
-                const token = Object.fromEntries(params.entries());
-                if (token.access_token) {
-                    // CẬP NHẬT: Tính toán và lưu thời điểm hết hạn
-                    const expiresAt = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000; // Trừ 5 phút an toàn
-                    token.expires_at = expiresAt;
-                    googleAuthToken = token;
-                    localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
-                    updateAuthUI(true);
-                    getUserProfile();
-                    scheduleSilentRefresh(); // <-- THÊM MỚI: Lên lịch làm mới ngay sau khi nhận token
-                }
-             }
-        });
+			function handleSignOutClick() {
+				if (googleAuthToken) {
+					fetch(`https://oauth2.googleapis.com/revoke?token=${googleAuthToken.access_token}`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+					}).finally(() => {
+						googleAuthToken = null;
+						localStorage.removeItem('google_auth_token_v3');
+						if (refreshTimer) clearTimeout(refreshTimer);
+						updateAuthUI(false);
+					});
+				}
+			}
+			
+			function checkTokenOnLoad() {
+				const storedToken = localStorage.getItem('google_auth_token_v3');
+				if (storedToken) {
+					googleAuthToken = JSON.parse(storedToken);
+					updateAuthUI(true);
+					getUserProfile();
+					scheduleSilentRefresh();
+				} else {
+					updateAuthUI(false);
+				}
+			}
+			
+			window.addEventListener('message', (event) => {
+				 if (event.origin !== window.location.origin) return;
+				 if (event.data?.type === 'oauth_callback') {
+					const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
+					const token = Object.fromEntries(params.entries());
+					if (token.access_token) {
+						const expiresAt = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000;
+						token.expires_at = expiresAt;
+						googleAuthToken = token;
+						localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
+						updateAuthUI(true);
+						getUserProfile();
+						scheduleSilentRefresh();
+					}
+				 }
+			});
 
-        // --- CÁC HÀM LÀM MỚI TOKEN ÂM THẦM ---
-        function scheduleSilentRefresh() {
-            if (!googleAuthToken?.expires_at) return;
-            if (refreshTimer) clearTimeout(refreshTimer);
-            
-            const msUntilExpiry = googleAuthToken.expires_at - Date.now();
-            if (msUntilExpiry <= 0) {
-                // Nếu token đã hết hạn, thử làm mới ngay
-                silentRefresh();
-                return;
-            }
+			// --- CÁC HÀM LÀM MỚI TOKEN ÂM THẦM ---
+			function scheduleSilentRefresh() {
+				if (!googleAuthToken?.expires_at) return;
+				if (refreshTimer) clearTimeout(refreshTimer);
+				const msUntilExpiry = googleAuthToken.expires_at - Date.now();
+				if (msUntilExpiry <= 0) {
+					silentRefresh();
+					return;
+				}
+				const refreshTime = Math.max(0, msUntilExpiry);
+				refreshTimer = setTimeout(() => silentRefresh(), refreshTime);
+			}
 
-            // Lên lịch chạy trước khi hết hạn
-            const refreshTime = Math.max(0, msUntilExpiry);
-            refreshTimer = setTimeout(() => silentRefresh(), refreshTime);
-        }
+			function silentRefresh() {
+				console.log("Attempting silent token refresh...");
+				const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+				const params = {
+					client_id: GAPI_CLIENT_ID,
+					redirect_uri: REDIRECT_URI,
+					response_type: 'token',
+					scope: GAPI_SCOPES,
+					include_granted_scopes: 'true',
+					prompt: 'none'
+				};
+				const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
+				const iframe = document.createElement('iframe');
+				iframe.style.display = 'none';
+				iframe.src = url;
+				document.body.appendChild(iframe);
 
-        function silentRefresh() {
-            console.log("Attempting silent token refresh...");
-            const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
-            const params = {
-                client_id: GAPI_CLIENT_ID,
-                redirect_uri: REDIRECT_URI,
-                response_type: 'token',
-                scope: GAPI_SCOPES,
-                include_granted_scopes: 'true',
-                prompt: 'none' // Quan trọng: không hiện UI
-            };
-            const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
+				const onMsg = (event) => {
+					if (event.origin !== window.location.origin || event.source !== iframe.contentWindow) return;
+					if (event.data?.type === 'oauth_callback') {
+						const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
+						const token = Object.fromEntries(params.entries());
+						if (token.access_token) {
+							console.log("Silent refresh successful!");
+							token.expires_at = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000;
+							googleAuthToken = token;
+							localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
+							scheduleSilentRefresh();
+						} else {
+							console.log("Silent refresh responded but no token found.");
+						}
+						cleanup();
+					}
+				};
 
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = url;
-            document.body.appendChild(iframe);
+				const timeout = setTimeout(() => {
+					console.log("Silent refresh timed out.");
+					cleanup();
+				}, 15000);
 
-            const onMsg = (event) => {
-                if (event.origin !== window.location.origin || event.source !== iframe.contentWindow) return;
-                
-                if (event.data?.type === 'oauth_callback') {
-                    const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
-                    const token = Object.fromEntries(params.entries());
-                    if (token.access_token) {
-                        console.log("Silent refresh successful!");
-                        token.expires_at = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000;
-                        googleAuthToken = token;
-                        localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
-                        scheduleSilentRefresh();
-                    } else {
-                        console.log("Silent refresh responded but no token found.");
-                    }
-                    cleanup();
-                }
-            };
+				function cleanup() {
+					window.removeEventListener('message', onMsg);
+					clearTimeout(timeout);
+					if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+				}
+				window.addEventListener('message', onMsg);
+			}
+			
+			// --- LOGIC DỮ LIỆU VỚI FIRESTORE ---
+			function getCollectionRef(collectionName) {
+				if (!currentUserProfile) return null;
+				return db.collection('users').doc(currentUserProfile.sub).collection(collectionName);
+			}
 
-            const timeout = setTimeout(() => {
-                console.log("Silent refresh timed out.");
-                cleanup(); // Bỏ qua nếu không gia hạn được
-            }, 15000);
+			async function renderYears() {
+				const yearsRef = getCollectionRef('schoolYears');
+				if (!yearsRef) return;
+				
+				yearsRef.orderBy('name', 'desc').onSnapshot(snapshot => {
+					const years = snapshot.docs.map(doc => doc.data().name);
+					if (years.length === 0 && !snapshot.metadata.hasPendingWrites) {
+						const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
+						const batch = db.batch();
+						defaultYears.forEach(year => {
+							const docRef = yearsRef.doc();
+							batch.set(docRef, { name: year });
+						});
+						batch.commit();
+						return;
+					}
+					const currentYear = ui.schoolYearSelect.value;
+					ui.schoolYearSelect.innerHTML = '';
+					ui.yearList.innerHTML = '';
+					years.forEach(year => {
+						ui.schoolYearSelect.add(new Option(year, year));
+						ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
+					});
+					if (currentYear && years.includes(currentYear)) {
+						ui.schoolYearSelect.value = currentYear;
+					}
+					lucide.createIcons();
+					renderDocuments();
+				});
+			}
+			
+			function populateDocTypeFilter() {
+				const docTypes = ['Tất cả loại', 'Kế hoạch', 'Báo cáo', 'Quyết định', 'Thông báo', 'Công văn', 'Thông tư', 'Hướng dẫn', 'Quy định', 'Nghị quyết', 'Nghị định'];
+				ui.docTypeFilter.innerHTML = docTypes.map(type => `<option value="${type === 'Tất cả loại' ? 'all' : type}">${type}</option>`).join('');
+			}
 
-            function cleanup() {
-                window.removeEventListener('message', onMsg);
-                clearTimeout(timeout);
-                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            }
-            window.addEventListener('message', onMsg);
-        }
-        
-        // --- LOGIC DỮ LIỆU VỚI FIRESTORE ---
-        function getCollectionRef(collectionName) {
-            if (!currentUserProfile) return null;
-            return db.collection('users').doc(currentUserProfile.sub).collection(collectionName);
-        }
+			function populateMonthFilter() {
+				const months = ['Tất cả tháng', 'Tháng 01', 'Tháng 02', 'Tháng 03', 'Tháng 04', 'Tháng 05', 'Tháng 06', 'Tháng 07', 'Tháng 08', 'Tháng 09', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+				ui.docMonthFilter.innerHTML = months.map((month, index) => `<option value="${index === 0 ? 'all' : String(index).padStart(2, '0')}">${month}</option>`).join('');
+			}
+			
+			function renderDocuments() {
+				if (unsubscribeDocuments) unsubscribeDocuments();
+				const docsRef = getCollectionRef('documents');
+				if (!docsRef) {
+					ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
+					return;
+				}
+				const selectedYear = ui.schoolYearSelect.value;
+				const selectedType = ui.docTypeFilter.value;
+				const selectedMonth = ui.docMonthFilter.value;
+				const searchTerm = ui.searchInput.value.toLowerCase();
+				if (!selectedYear) {
+					 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng tạo năm học trước...</td></tr>`;
+					return;
+				}
+				let query = docsRef.where('schoolYear', '==', selectedYear);
+				if (selectedType !== 'all') query = query.where('type', '==', selectedType);
+				if (selectedMonth !== 'all') query = query.where('month', '==', selectedMonth);
+				query = query.orderBy('createdAt', 'desc');
+				
+				unsubscribeDocuments = query.onSnapshot(snapshot => {
+					let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
+					if (searchTerm) {
+						docs = docs.filter(doc => (doc.name && doc.name.toLowerCase().includes(searchTerm)) || (doc.id && doc.id.toLowerCase().includes(searchTerm)));
+					}
+					if (docs.length === 0) {
+						ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Không có dữ liệu phù hợp...</td></tr>`;
+						return;
+					}
+					ui.docTableBody.innerHTML = docs.map((doc, index) => {
+						const fileCount = doc.driveData?.files?.length || 0;
+						const isLocked = doc.isLocked === true;
+						const rowClass = isLocked ? 'opacity-60' : '';
+						const lockIcon = isLocked ? '<i data-lucide="lock" class="w-4 h-4"></i>' : '<i data-lucide="unlock" class="w-4 h-4"></i>';
+						const lockTitle = isLocked ? 'Mở khóa' : 'Khóa';
+						const lockColor = isLocked ? 'text-yellow-500' : 'text-gray-400';
+						return `
+							<tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${rowClass}" data-doc-id="${doc.firestoreId}">
+								<td class="py-4 px-6 view-files-cell">${index + 1}</td>
+								<th class="py-4 px-6 font-medium text-gray-900 dark:text-white view-files-cell">${doc.name || ''}</th>
+								<td class="py-4 px-6 view-files-cell">${doc.id || ''}</td>
+								<td class="py-4 px-6 view-files-cell">${formatDate(doc.date)}</td>
+								<td class="py-4 px-6 text-sm view-files-cell">
+									<span class="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
+										<i data-lucide="paperclip" class="w-3 h-3 mr-1"></i>${fileCount} tệp
+									</span>
+								</td>
+								<td class="py-4 px-6 view-files-cell">${doc.status || ''}</td>
+								<td class="py-4 px-6 flex items-center space-x-2">
+									<button data-doc-id="${doc.firestoreId}" data-locked="${isLocked}" class="toggle-lock-btn p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${lockColor}" title="${lockTitle}">${lockIcon}</button>
+									<button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa" ${isLocked ? 'disabled' : ''}><i data-lucide="edit" class="w-4 h-4"></i></button>
+									<button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa" ${isLocked ? 'disabled' : ''}><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+								</td>
+							</tr>`;
+					}).join('');
+					lucide.createIcons();
+				}, error => {
+					console.error("Firestore Error: ", error);
+					ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Đã xảy ra lỗi. Vui lòng kiểm tra Console (F12) để tạo Index cần thiết.</td></tr>`;
+				});
+			}
+			
+			async function openFileViewer(docId) {
+				const docRef = getCollectionRef('documents').doc(docId);
+				const docSnap = await docRef.get();
+				if (!docSnap.exists) {
+					alert('Không tìm thấy văn bản!');
+					return;
+				}
+				const docData = docSnap.data();
+				const files = docData.driveData?.files || [];
+				ui.fileViewerTitle.textContent = `Tệp đính kèm cho: ${docData.name}`;
+				ui.fileList.innerHTML = '';
+				ui.viewerPlaceholder.classList.remove('hidden');
+				ui.fileViewerIframe.classList.add('hidden');
+				ui.fileViewerIframe.src = 'about:blank';
+				if (files.length === 0) {
+					ui.fileList.innerHTML = '<li class="text-sm text-gray-500">Không có tệp nào.</li>';
+				} else {
+					files.forEach((file) => {
+						const li = document.createElement('li');
+						li.className = 'file-item p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-sm';
+						li.innerHTML = `<img src="${file.iconLink}" class="w-4 h-4 mr-2 shrink-0" alt="icon"><span class="flex-grow truncate" title="${file.name}">${file.name}</span><a href="${file.webContentLink}" target="_blank" download class="download-btn p-1 text-gray-400 hover:text-blue-500 ml-2 shrink-0" title="Tải về"><i data-lucide="download" class="w-4 h-4"></i></a>`;
+						li.addEventListener('click', (e) => {
+							if (e.target.closest('.download-btn')) return;
+							document.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
+							li.classList.add('selected');
+							previewFile(file);
+						});
+						ui.fileList.appendChild(li);
+					});
+					lucide.createIcons();
+				}
+				ui.fileViewerModal.classList.remove('hidden');
+			}
 
-        async function renderYears() {
-            const yearsRef = getCollectionRef('schoolYears');
-            if (!yearsRef) return;
-            
-            yearsRef.orderBy('name', 'desc').onSnapshot(snapshot => {
-                const years = snapshot.docs.map(doc => doc.data().name);
+			function previewFile(file) {
+				const embedUrl = `https://drive.google.com/file/d/${file.id}/preview`;
+				ui.viewerPlaceholder.classList.add('hidden');
+				ui.fileViewerIframe.src = embedUrl;
+				ui.fileViewerIframe.classList.remove('hidden');
+			}
 
-                if (years.length === 0 && !snapshot.metadata.hasPendingWrites) {
-                    const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
-                    const batch = db.batch();
-                    defaultYears.forEach(year => {
-                        const docRef = yearsRef.doc();
-                        batch.set(docRef, { name: year });
-                    });
-                    batch.commit();
-                    return;
-                }
+			function formatDate(dateString) {
+				if (!dateString) return '';
+				const [year, month, day] = dateString.split('-');
+				return `${day}/${month}/${year}`;
+			}
+			
+			function convertToUnaccented(text) {
+				text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+				text = text.replace(/Đ/g, 'D').replace(/đ/g, 'd');
+				return text;
+			}
 
-                const currentYear = ui.schoolYearSelect.value;
-                ui.schoolYearSelect.innerHTML = '';
-                ui.yearList.innerHTML = '';
-                years.forEach(year => {
-                    ui.schoolYearSelect.add(new Option(year, year));
-                    ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
-                });
-                
-                if (currentYear && years.includes(currentYear)) {
-                    ui.schoolYearSelect.value = currentYear;
-                }
+			async function toggleLockStatus(docId, currentStatus) {
+				const docRef = getCollectionRef('documents').doc(docId);
+				try {
+					await docRef.update({ isLocked: !currentStatus });
+				} catch (error) {
+					console.error("Error updating lock status:", error);
+					alert("Đã xảy ra lỗi khi cập nhật trạng thái khóa.");
+				}
+			}
 
-                lucide.createIcons();
-                renderDocuments();
-            });
-        }
-        
-        function populateDocTypeFilter() {
-            const docTypes = ['Tất cả loại', 'Kế hoạch', 'Báo cáo', 'Quyết định', 'Thông báo', 'Công văn', 'Thông tư', 'Hướng dẫn', 'Quy định', 'Nghị quyết', 'Nghị định'];
-            ui.docTypeFilter.innerHTML = '';
-            docTypes.forEach(type => {
-                const option = new Option(type, type === 'Tất cả loại' ? 'all' : type);
-                ui.docTypeFilter.add(option);
-            });
-        }
+			// --- EVENT LISTENERS ---
+			ui.authBtn.addEventListener('click', handleAuthClick);
+			ui.signOutBtn.addEventListener('click', handleSignOutClick);
+			ui.themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+			ui.addDocBtn.addEventListener('click', () => {
+				ui.docForm.reset();
+				ui.docFirestoreId.value = '';
+				ui.modalTitle.textContent = 'Thêm Văn bản Mới';
+				ui.fileInput.required = true;
+				ui.docModal.classList.remove('hidden');
+			});
+			ui.closeDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
+			ui.cancelDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
+			ui.manageYearsBtn.addEventListener('click', () => ui.yearModal.classList.remove('hidden'));
+			ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
+			ui.closeViewerBtn.addEventListener('click', () => {
+				ui.fileViewerModal.classList.add('hidden');
+				ui.fileViewerIframe.src = 'about:blank';
+			});
+			
+			ui.addYearBtn.addEventListener('click', async () => {
+				const newYear = ui.newYearInput.value.trim();
+				if (newYear) {
+					const yearsRef = getCollectionRef('schoolYears');
+					if (!yearsRef) return alert('Vui lòng đăng nhập');
+					const existing = await yearsRef.where('name', '==', newYear).get();
+					if (existing.empty) {
+						await yearsRef.add({ name: newYear });
+					} else {
+						alert('Năm học này đã tồn tại!');
+					}
+					ui.newYearInput.value = '';
+				}
+			});
 
-        function populateMonthFilter() {
-            const months = ['Tất cả tháng', 'Tháng 01', 'Tháng 02', 'Tháng 03', 'Tháng 04', 'Tháng 05', 'Tháng 06', 'Tháng 07', 'Tháng 08', 'Tháng 09', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-            ui.docMonthFilter.innerHTML = '';
-            months.forEach((month, index) => {
-                const value = (index === 0) ? 'all' : String(index).padStart(2, '0');
-                const option = new Option(month, value);
-                ui.docMonthFilter.add(option);
-            });
-        }
-        
-        function renderDocuments() {
-            if (unsubscribeDocuments) unsubscribeDocuments();
+			ui.yearList.addEventListener('click', async (e) => {
+				const deleteBtn = e.target.closest('.delete-year-btn');
+				if (deleteBtn && confirm(`Bạn có chắc muốn xóa "${deleteBtn.dataset.year}"? Việc này sẽ xóa TẤT CẢ văn bản trong năm học này.`)) {
+					const yearsRef = getCollectionRef('schoolYears');
+					const docsRef = getCollectionRef('documents');
+					if (!yearsRef || !docsRef) return;
+					const yearQuery = await yearsRef.where('name', '==', deleteBtn.dataset.year).get();
+					const docQuery = await docsRef.where('schoolYear', '==', deleteBtn.dataset.year).get();
+					const batch = db.batch();
+					yearQuery.forEach(doc => batch.delete(doc.ref));
+					docQuery.forEach(doc => batch.delete(doc.ref));
+					await batch.commit();
+				}
+			});
+			
+			ui.docTableBody.addEventListener('click', async (e) => {
+				const target = e.target.closest('button, .view-files-cell');
+				if (!target) return;
+				const docId = target.closest('tr').dataset.docId;
+				if (target.matches('.toggle-lock-btn')) {
+					toggleLockStatus(docId, target.dataset.locked === 'true');
+				} else if (target.matches('.edit-doc-btn')) {
+					const docRef = getCollectionRef('documents').doc(docId);
+					const docSnap = await docRef.get();
+					if (docSnap.exists) {
+						const data = docSnap.data();
+						document.getElementById('doc-name').value = data.name || '';
+						document.getElementById('doc-id').value = data.id || '';
+						document.getElementById('doc-date').value = data.date || '';
+						document.getElementById('doc-type').value = data.type || '';
+						document.getElementById('doc-status').value = data.status || '';
+						ui.docFirestoreId.value = docId;
+						ui.modalTitle.textContent = 'Chỉnh sửa Văn bản';
+						ui.fileInput.required = false;
+						ui.docModal.classList.remove('hidden');
+					}
+				} else if (target.matches('.delete-doc-btn')) {
+					if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
+						getCollectionRef('documents').doc(docId).delete();
+					}
+				} else if (target.matches('.view-files-cell')) {
+					openFileViewer(docId);
+				}
+			});
+			
+			[ui.schoolYearSelect, ui.docTypeFilter, ui.docMonthFilter].forEach(el => el.addEventListener('change', renderDocuments));
+			ui.searchInput.addEventListener('input', renderDocuments);
+			
+			ui.saveBtn.addEventListener('click', async () => {
+				if (!ui.docForm.checkValidity()) {
+					ui.docForm.reportValidity();
+					return;
+				}
+				if (!googleAuthToken) {
+					alert('Vui lòng đăng nhập Google trước khi thực hiện.');
+					handleAuthClick();
+					return;
+				}
 
-            const docsRef = getCollectionRef('documents');
-            if (!docsRef) {
-                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
-                return;
-            }
+				ui.saveBtn.disabled = true;
+				ui.saveBtn.textContent = 'Đang xử lý...';
+				
+				try {
+					const docData = {
+						schoolYear: ui.schoolYearSelect.value,
+						name: document.getElementById('doc-name').value.trim(),
+						id: document.getElementById('doc-id').value.trim(),
+						date: document.getElementById('doc-date').value,
+						type: document.getElementById('doc-type').value,
+						status: document.getElementById('doc-status').value,
+						month: document.getElementById('doc-date').value ? document.getElementById('doc-date').value.substring(5, 7) : ''
+					};
+					
+					const existingDocId = ui.docFirestoreId.value;
+					if (ui.fileInput.files.length > 0) {
+						 docData.driveData = await uploadManager.startUpload();
+					}
+					const docsRef = getCollectionRef('documents');
+					if (existingDocId) {
+						await docsRef.doc(existingDocId).update(docData);
+					} else {
+						docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+						docData.isLocked = false;
+						await docsRef.add(docData);
+					}
+					alert('Lưu thông tin thành công!');
+					ui.docModal.classList.add('hidden');
+					ui.docForm.reset();
+				} catch (error) {
+					console.error("Save process failed:", error);
+					alert(`Đã xảy ra lỗi: ${error.message}`);
+				} finally {
+					ui.saveBtn.disabled = false;
+					ui.saveBtn.textContent = 'Lưu lại';
+				}
+			});
+			
+			// --- GOOGLE DRIVE API LOGIC ---
+			const uploadManager = {
+				/**
+				 * ĐÃ CẬP NHẬT: Xử lý lỗi tốt hơn, không bị crash khi response lỗi không phải là JSON
+				 */
+				async apiCall(path, method = 'POST', body = null, headers = {}) {
+					if (!googleAuthToken || !googleAuthToken.access_token) throw new Error("Chưa xác thực.");
+					if (googleAuthToken.expires_at && Date.now() > googleAuthToken.expires_at) {
+						await silentRefresh();
+						if (!googleAuthToken || Date.now() > googleAuthToken.expires_at) {
+							 throw new Error("Không thể làm mới token. Vui lòng đăng nhập lại.");
+						}
+					}
+					
+					const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
+					const url = path.startsWith('https://') ? path : `https://www.googleapis.com/${path}`;
+					const response = await fetch(url, { method, headers: { ...defaultHeaders, ...headers }, body });
 
-            const selectedYear = ui.schoolYearSelect.value;
-            const selectedType = ui.docTypeFilter.value;
-            const selectedMonth = ui.docMonthFilter.value;
-            const searchTerm = ui.searchInput.value.toLowerCase();
-            
-            if (!selectedYear) {
-                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng tạo năm học trước...</td></tr>`;
-                return;
-            }
+					if (!response.ok) {
+						let errorMessage = `Lỗi API: ${response.status} ${response.statusText}`;
+						try {
+							const errorData = await response.json();
+							if (errorData.error && errorData.error.message) {
+								errorMessage = errorData.error.message;
+							}
+						} catch (e) {
+							console.error("Could not parse error response body as JSON.");
+						}
+						throw new Error(errorMessage);
+					}
+					
+					const contentType = response.headers.get("content-type");
+					return contentType?.includes("application/json") ? response.json() : response;
+				},
 
-            let query = docsRef.where('schoolYear', '==', selectedYear);
-            if (selectedType !== 'all') {
-                query = query.where('type', '==', selectedType);
-            }
-            if (selectedMonth !== 'all') {
-                query = query.where('month', '==', selectedMonth);
-            }
-            query = query.orderBy('createdAt', 'desc');
-            
-            unsubscribeDocuments = query.onSnapshot(snapshot => {
-                let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
+				/**
+				 * ĐÃ CẬP NHẬT: Đơn giản hóa lại logic upload, ổn định hơn
+				 */
+				async uploadFile(file, parentId) {
+					const metadata = { name: file.name, parents: [parentId] };
+					const fileMetadataResponse = await this.apiCall('https://www.googleapis.com/drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
+					const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
+					await this.apiCall(uploadUrl, 'PATCH', file, { 'Content-Type': file.type || 'application/octet-stream' });
+				},
 
-                if (searchTerm) {
-                    docs = docs.filter(doc => 
-                        (doc.name && doc.name.toLowerCase().includes(searchTerm)) || 
-                        (doc.id && doc.id.toLowerCase().includes(searchTerm))
-                    );
-                }
+				async startUpload() {
+					const docName = document.getElementById('doc-name').value.trim();
+					const schoolYear = ui.schoolYearSelect.value;
+					const unaccentedDocName = convertToUnaccented(docName);
+					const unaccentedSchoolYear = convertToUnaccented(schoolYear);
+					const docFolderName = unaccentedDocName + ' - ' + Date.now();
 
-                ui.docTableBody.innerHTML = '';
-                if (docs.length === 0) {
-                    ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Không có dữ liệu phù hợp...</td></tr>`;
-                    return;
-                }
-                docs.forEach((doc, index) => {
-                    const fileCount = doc.driveData?.files?.length || 0;
-                    const isLocked = doc.isLocked === true;
-                    const rowClass = isLocked ? 'opacity-60' : '';
-                    const lockIcon = isLocked ? '<i data-lucide="lock" class="w-4 h-4"></i>' : '<i data-lucide="unlock" class="w-4 h-4"></i>';
-                    const lockTitle = isLocked ? 'Mở khóa' : 'Khóa';
-                    const lockColor = isLocked ? 'text-yellow-500' : 'text-gray-400';
+					const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
+					const yearFolder = await this.findOrCreateFolder(unaccentedSchoolYear, qlvbFolder.id);
+					const docFolder = await this.findOrCreateFolder(docFolderName, yearFolder.id);
+					
+					for (const file of ui.fileInput.files) {
+						await this.uploadFile(file, docFolder.id);
+					}
+					
+					const listPath = `drive/v3/files?q='${docFolder.id}' in parents and trashed=false&fields=files(id, name, iconLink, webViewLink, webContentLink)`;
+					const uploadedFilesData = await this.apiCall(listPath, 'GET');
 
-                    ui.docTableBody.innerHTML += `
-                        <tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${rowClass}" data-doc-id="${doc.firestoreId}">
-                            <td class="py-4 px-6 view-files-cell">${index + 1}</td>
-                            <th class="py-4 px-6 font-medium text-gray-900 dark:text-white view-files-cell">${doc.name || ''}</th>
-                            <td class="py-4 px-6 view-files-cell">${doc.id || ''}</td>
-                            <td class="py-4 px-6 view-files-cell">${formatDate(doc.date)}</td>
-                            <td class="py-4 px-6 text-sm view-files-cell">
-                                <span class="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
-                                    <i data-lucide="paperclip" class="w-3 h-3 mr-1"></i>
-                                    ${fileCount} tệp
-                                </span>
-                            </td>
-                            <td class="py-4 px-6 view-files-cell">${doc.status || ''}</td>
-                            <td class="py-4 px-6 flex items-center space-x-2">
-                                <button data-doc-id="${doc.firestoreId}" data-locked="${isLocked}" class="toggle-lock-btn p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${lockColor}" title="${lockTitle}">${lockIcon}</button>
-                                <button data-doc-id="${doc.firestoreId}" class="edit-doc-btn p-2 text-green-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Chỉnh sửa" ${isLocked ? 'disabled' : ''}><i data-lucide="edit" class="w-4 h-4"></i></button>
-                                <button data-doc-id="${doc.firestoreId}" class="delete-doc-btn p-2 text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" title="Xóa" ${isLocked ? 'disabled' : ''}><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            </td>
-                        </tr>`;
-                });
-                lucide.createIcons();
-            }, error => {
-                console.error("Firestore Error: ", error);
-                ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Đã xảy ra lỗi. Vui lòng kiểm tra Console (F12) để tạo Index cần thiết.</td></tr>`;
-            });
-        }
-        
-        async function openFileViewer(docId) {
-            const docRef = getCollectionRef('documents').doc(docId);
-            const docSnap = await docRef.get();
-            if (!docSnap.exists) {
-                alert('Không tìm thấy văn bản!');
-                return;
-            }
+					return {
+						folderId: docFolder.id,
+						folderUrl: docFolder.webViewLink,
+						files: uploadedFilesData.files || []
+					};
+				},
 
-            const docData = docSnap.data();
-            const files = docData.driveData?.files || [];
+				async findOrCreateFolder(name, parentId = 'root') {
+					const nameEsc = name.replace(/'/g, "\\'");
+					const getPath = `drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${nameEsc}' and '${parentId}' in parents and trashed=false&fields=files(id,webViewLink)`;
+					const data = await this.apiCall(getPath, 'GET');
+					if (data.files.length > 0) return data.files[0];
+					
+					const postPath = 'drive/v3/files?fields=id,webViewLink';
+					return this.apiCall(postPath, 'POST', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), {'Content-Type': 'application/json'});
+				},
+			};
 
-            ui.fileViewerTitle.textContent = `Tệp đính kèm cho: ${docData.name}`;
-            ui.fileList.innerHTML = '';
-            ui.viewerPlaceholder.classList.remove('hidden');
-            ui.fileViewerIframe.classList.add('hidden');
-            ui.fileViewerIframe.src = 'about:blank';
-
-            if (files.length === 0) {
-                ui.fileList.innerHTML = '<li class="text-sm text-gray-500">Không có tệp nào.</li>';
-            } else {
-                files.forEach((file, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-sm';
-                    li.innerHTML = `
-                        <img src="${file.iconLink}" class="w-4 h-4 mr-2 shrink-0" alt="icon">
-                        <span class="flex-grow truncate" title="${file.name}">${file.name}</span>
-                        <a href="${file.webContentLink}" target="_blank" download class="download-btn p-1 text-gray-400 hover:text-blue-500 ml-2 shrink-0" title="Tải về">
-                           <i data-lucide="download" class="w-4 h-4"></i>
-                        </a>
-                    `;
-                    li.addEventListener('click', (e) => {
-                        if (e.target.closest('.download-btn')) {
-                            return; 
-                        }
-                        document.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
-                        li.classList.add('selected');
-                        previewFile(file);
-                    });
-                    ui.fileList.appendChild(li);
-                });
-                lucide.createIcons();
-            }
-            ui.fileViewerModal.classList.remove('hidden');
-        }
-
-        function previewFile(file) {
-            const embedUrl = `https://drive.google.com/file/d/${file.id}/preview`;
-            ui.viewerPlaceholder.classList.add('hidden');
-            ui.fileViewerIframe.src = embedUrl;
-            ui.fileViewerIframe.classList.remove('hidden');
-        }
-
-        function formatDate(dateString) {
-            if (!dateString) return '';
-            const [year, month, day] = dateString.split('-');
-            return `${day}/${month}/${year}`;
-        }
-        
-        function convertToUnaccented(text) {
-            text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            text = text.replace(/Đ/g, 'D').replace(/đ/g, 'd');
-            return text;
-        }
-
-        async function toggleLockStatus(docId, currentStatus) {
-            const docRef = getCollectionRef('documents').doc(docId);
-            try {
-                await docRef.update({ isLocked: !currentStatus });
-            } catch (error) {
-                console.error("Error updating lock status:", error);
-                alert("Đã xảy ra lỗi khi cập nhật trạng thái khóa.");
-            }
-        }
-
-        // --- EVENT LISTENERS ---
-        ui.authBtn.addEventListener('click', handleAuthClick);
-        ui.signOutBtn.addEventListener('click', handleSignOutClick);
-        ui.themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
-        
-        ui.addDocBtn.addEventListener('click', () => {
-            ui.docForm.reset();
-            ui.docFirestoreId.value = '';
-            ui.modalTitle.textContent = 'Thêm Văn bản Mới';
-            ui.fileInput.required = true;
-            ui.docModal.classList.remove('hidden');
-        });
-        
-        ui.closeDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
-        ui.cancelDocModalBtn.addEventListener('click', () => ui.docModal.classList.add('hidden'));
-        ui.manageYearsBtn.addEventListener('click', () => ui.yearModal.classList.remove('hidden'));
-        ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
-        ui.closeViewerBtn.addEventListener('click', () => {
-            ui.fileViewerModal.classList.add('hidden');
-            ui.fileViewerIframe.src = 'about:blank';
-        });
-        
-        ui.addYearBtn.addEventListener('click', async () => {
-            const newYear = ui.newYearInput.value.trim();
-            if (newYear) {
-                const yearsRef = getCollectionRef('schoolYears');
-                if (!yearsRef) return alert('Vui lòng đăng nhập');
-                const existing = await yearsRef.where('name', '==', newYear).get();
-                if (existing.empty) {
-                    await yearsRef.add({ name: newYear });
-                } else {
-                    alert('Năm học này đã tồn tại!');
-                }
-                ui.newYearInput.value = '';
-            }
-        });
-
-        ui.yearList.addEventListener('click', async (e) => {
-            const deleteBtn = e.target.closest('.delete-year-btn');
-            if (deleteBtn) {
-                const yearToDelete = deleteBtn.dataset.year;
-                if (confirm(`Bạn có chắc muốn xóa "${yearToDelete}"? Việc này sẽ xóa TẤT CẢ văn bản trong năm học này.`)) {
-                    const yearsRef = getCollectionRef('schoolYears');
-                    const docsRef = getCollectionRef('documents');
-                    if (!yearsRef || !docsRef) return;
-                    
-                    const yearQuery = await yearsRef.where('name', '==', yearToDelete).get();
-                    const docQuery = await docsRef.where('schoolYear', '==', yearToDelete).get();
-
-                    const batch = db.batch();
-                    yearQuery.forEach(doc => batch.delete(doc.ref));
-                    docQuery.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
-                }
-            }
-        });
-        
-        ui.docTableBody.addEventListener('click', async (e) => {
-            const viewCell = e.target.closest('.view-files-cell');
-            const deleteBtn = e.target.closest('.delete-doc-btn');
-            const editBtn = e.target.closest('.edit-doc-btn');
-            const lockBtn = e.target.closest('.toggle-lock-btn');
-            
-            if (lockBtn) {
-                e.stopPropagation();
-                const docId = lockBtn.dataset.docId;
-                const isLocked = lockBtn.dataset.locked === 'true';
-                toggleLockStatus(docId, isLocked);
-                return;
-            }
-
-            if (deleteBtn || editBtn) {
-                e.stopPropagation();
-                const docId = (deleteBtn || editBtn).dataset.docId;
-                if (editBtn) {
-                    const docRef = getCollectionRef('documents').doc(docId);
-                    const docSnap = await docRef.get();
-                    if (docSnap.exists) {
-                        const data = docSnap.data();
-                        document.getElementById('doc-name').value = data.name || '';
-                        document.getElementById('doc-id').value = data.id || '';
-                        document.getElementById('doc-date').value = data.date || '';
-                        document.getElementById('doc-type').value = data.type || '';
-                        document.getElementById('doc-status').value = data.status || '';
-                        ui.docFirestoreId.value = docId;
-                        ui.modalTitle.textContent = 'Chỉnh sửa Văn bản';
-                        ui.fileInput.required = false;
-                        ui.docModal.classList.remove('hidden');
-                    }
-                }
-                if (deleteBtn) {
-                     if (confirm('Bạn có chắc muốn xóa văn bản này?')) {
-                        getCollectionRef('documents').doc(docId).delete();
-                    }
-                }
-                return;
-            }
-
-            if (viewCell) {
-                const docId = viewCell.closest('tr').dataset.docId;
-                openFileViewer(docId);
-            }
-        });
-        
-        ui.schoolYearSelect.addEventListener('change', renderDocuments);
-        ui.searchInput.addEventListener('input', renderDocuments);
-        ui.docTypeFilter.addEventListener('change', renderDocuments);
-        ui.docMonthFilter.addEventListener('change', renderDocuments);
-        
-        ui.saveBtn.addEventListener('click', async () => {
-            if (!ui.docForm.checkValidity()) {
-                ui.docForm.reportValidity();
-                return;
-            }
-            if (!googleAuthToken) {
-                alert('Vui lòng đăng nhập Google trước khi thực hiện.');
-                handleAuthClick();
-                return;
-            }
-
-            ui.saveBtn.disabled = true;
-            ui.saveBtn.textContent = 'Đang xử lý...';
-            
-            try {
-                const docData = {
-                    schoolYear: ui.schoolYearSelect.value,
-                    name: document.getElementById('doc-name').value.trim(),
-                    id: document.getElementById('doc-id').value.trim(),
-                    date: document.getElementById('doc-date').value,
-                    type: document.getElementById('doc-type').value,
-                    status: document.getElementById('doc-status').value,
-                };
-
-                const docDate = docData.date;
-                if (docDate) {
-                    docData.month = docDate.substring(5, 7);
-                } else {
-                    docData.month = ''; 
-                }
-                
-                const existingDocId = ui.docFirestoreId.value;
-
-                if (ui.fileInput.files.length > 0) {
-                     docData.driveData = await uploadManager.startUpload();
-                }
-
-                const docsRef = getCollectionRef('documents');
-
-                if (existingDocId) {
-                    await docsRef.doc(existingDocId).update(docData);
-                } else {
-                    docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    docData.isLocked = false;
-                    await docsRef.add(docData);
-                }
-                
-                alert('Lưu thông tin thành công!');
-                ui.docModal.classList.add('hidden');
-                ui.docForm.reset();
-            } catch (error) {
-                console.error("Save process failed:", error);
-                alert(`Đã xảy ra lỗi: ${error.message}`);
-            } finally {
-                ui.saveBtn.disabled = false;
-                ui.saveBtn.textContent = 'Lưu lại';
-            }
-        });
-        
-        // --- GOOGLE DRIVE API LOGIC ---
-        const uploadManager = {
-            async apiCall(path, method = 'POST', body = null, headers = {}) {
-                if (!googleAuthToken || !googleAuthToken.access_token) {
-                    throw new Error("Người dùng chưa xác thực hoặc token không hợp lệ.");
-                }
-                // Thêm kiểm tra token hết hạn ở đây nếu muốn chặt chẽ hơn
-                if (googleAuthToken.expires_at && Date.now() > googleAuthToken.expires_at) {
-                    console.log("Token expired, attempting silent refresh before API call.");
-                    // Chờ silent refresh hoàn tất
-                    await silentRefresh();
-                    if (!googleAuthToken || Date.now() > googleAuthToken.expires_at) {
-                         throw new Error("Không thể làm mới token. Vui lòng đăng nhập lại.");
-                    }
-                }
-                
-                const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
-                const url = path.startsWith('https://') ? path : `https://www.googleapis.com/${path}`;
-                const response = await fetch(url, {
-                    method,
-                    headers: { ...defaultHeaders, ...headers },
-                    body
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error.message || 'Lỗi không xác định từ Google API.');
-                }
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    return response.json();
-                } 
-                return response;
-            },
-            async findOrCreateFolder(name, parentId = 'root') {
-                const nameEsc = name.replace(/'/g, "\\'");
-                const getPath = `drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${nameEsc}' and '${parentId}' in parents and trashed=false&fields=files(id,webViewLink)`;
-                const data = await this.apiCall(getPath, 'GET');
-                if (data.files.length > 0) return data.files[0];
-                
-                const postPath = 'drive/v3/files?fields=id,webViewLink';
-                return this.apiCall(postPath, 'POST', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), {'Content-Type': 'application/json'});
-            },
-            async uploadFile(file, parentId) {
-                const metadata = { name: file.name, parents: [parentId] };
-                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`;
-                
-                const initialResponse = await this.apiCall(uploadUrl, 'POST', JSON.stringify(metadata), { 
-                    'Content-Type': 'application/json; charset=UTF-8'
-                });
-
-                const locationUrl = initialResponse.headers.get('Location');
-
-                await fetch(locationUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Range': `bytes 0-${file.size - 1}/${file.size}`},
-                    body: file
-                });
-            },
-            async startUpload() {
-                const docName = document.getElementById('doc-name').value.trim();
-                const schoolYear = ui.schoolYearSelect.value;
-                
-                const unaccentedDocName = convertToUnaccented(docName);
-                const unaccentedSchoolYear = convertToUnaccented(schoolYear);
-                const docFolderName = unaccentedDocName + ' - ' + Date.now();
-
-                const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
-                const yearFolder = await this.findOrCreateFolder(unaccentedSchoolYear, qlvbFolder.id);
-                const docFolder = await this.findOrCreateFolder(docFolderName, yearFolder.id);
-                
-                const filesToUpload = ui.fileInput.files;
-                for (const file of filesToUpload) {
-                    await this.uploadFile(file, docFolder.id);
-                }
-                
-                const listPath = `drive/v3/files?q='${docFolder.id}' in parents and trashed=false&fields=files(id, name, iconLink, webViewLink, webContentLink)`;
-                const uploadedFilesData = await this.apiCall(listPath, 'GET');
-
-                return {
-                    folderId: docFolder.id,
-                    folderUrl: docFolder.webViewLink,
-                    files: uploadedFilesData.files || []
-                };
-            }
-        };
-
-        // --- INITIAL LOAD ---
-        populateDocTypeFilter();
-        populateMonthFilter();
-        checkTokenOnLoad();
-        lucide.createIcons();
-    });
-    </script>
+			// --- INITIAL LOAD ---
+			populateDocTypeFilter();
+			populateMonthFilter();
+			checkTokenOnLoad();
+			lucide.createIcons();
+		});
+	</script>
 </body>
 </html>
