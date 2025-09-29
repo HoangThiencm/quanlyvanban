@@ -44,7 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script> <!-- Thêm Storage -->
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
@@ -247,15 +247,6 @@
     let unsubscribeDocuments = null; 
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- ADD THIS PART FOR REDIRECT HANDLING ---
-        auth.getRedirectResult().catch(error => {
-            console.error("Lỗi đăng nhập Google sau khi redirect:", error);
-            // Avoid showing generic internal errors to the user
-            if (error.code !== 'auth/internal-error') { 
-                alert(`Đăng nhập thất bại: ${error.message}`);
-            }
-        });
-
         // --- UI REFERENCES ---
         const ui = {
             authBtn: document.getElementById('authorize_button'),
@@ -301,7 +292,7 @@
                 ui.authBtn.classList.add('hidden');
                 ui.signOutBtn.classList.remove('hidden');
                 ui.userName.textContent = `Xin chào, ${user.displayName || user.email}`;
-                renderYears(); 
+                renderYears(); // Load data after user is confirmed
             } else {
                 // User is signed out.
                 ui.authBtn.classList.remove('hidden');
@@ -314,17 +305,12 @@
 
         function handleGoogleSignIn() {
             const provider = new firebase.auth.GoogleAuthProvider();
-             // *** IOS PWA FIX STARTS HERE ***
-            const isIosPwa = window.navigator.standalone;
-            if (isIosPwa) {
-                auth.signInWithPopup(provider).catch(error => {
-                     console.error("Lỗi đăng nhập Google (Popup):", error);
-                     alert(`Đăng nhập thất bại: ${error.message}`);
-                });
-            } else {
-                auth.signInWithRedirect(provider);
-            }
-            // *** IOS PWA FIX ENDS HERE ***
+            // Add scope for Google Drive
+            provider.addScope('https://www.googleapis.com/auth/drive.file');
+            auth.signInWithPopup(provider).catch(error => {
+                console.error("Lỗi đăng nhập Google:", error);
+                alert(`Đăng nhập thất bại: ${error.message}`);
+            });
         }
 
         function handleSignOut() {
@@ -491,6 +477,7 @@
                            <i data-lucide="download" class="w-4 h-4"></i>
                         </a>
                     `;
+                    // Simple preview for images, others can be downloaded.
                     if (file.type.startsWith('image/')) {
                        li.addEventListener('click', (e) => {
                             if (e.target.closest('.download-btn')) return;
@@ -538,6 +525,7 @@
             ui.docModal.classList.remove('hidden');
         });
         
+        // Modal close buttons
         [ui.closeDocModalBtn, ui.cancelDocModalBtn].forEach(btn => btn.addEventListener('click', () => ui.docModal.classList.add('hidden')));
         ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
         ui.closeViewerBtn.addEventListener('click', () => {
@@ -576,6 +564,7 @@
 
                     const batch = db.batch();
                     yearQuery.forEach(doc => batch.delete(doc.ref));
+                    // Also delete associated files in storage
                     for(const doc of docQuery.docs) {
                         const docData = doc.data();
                         if(docData.files && docData.files.length > 0) {
@@ -646,6 +635,7 @@
             }
         });
         
+        // Filters
         [ui.schoolYearSelect, ui.searchInput, ui.docTypeFilter, ui.docMonthFilter].forEach(el => {
             const eventType = el.tagName === 'INPUT' ? 'input' : 'change';
             el.addEventListener(eventType, renderDocuments);
@@ -764,4 +754,3 @@
     </script>
 </body>
 </html>
-
