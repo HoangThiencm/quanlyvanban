@@ -44,7 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script> <!-- Thêm Storage -->
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
@@ -60,8 +60,6 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
-                         <!-- NÚT DI CHUYỂN DỮ LIỆU TẠM THỜI -->
-                         <button id="migrate-data-btn" class="hidden bg-orange-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-orange-600">Di chuyển Dữ liệu Cũ</button>
                          <div id="auth-status" class="flex items-center space-x-2">
                              <button id="authorize_button" class="flex items-center bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-600">
                                 <svg class="w-4 h-4 mr-2" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
@@ -284,7 +282,6 @@
             uploadProgressContainer: document.getElementById('upload-progress-container'),
             uploadProgressBar: document.getElementById('upload-progress-bar'),
             uploadProgressText: document.getElementById('upload-progress-text'),
-            migrateDataBtn: document.getElementById('migrate-data-btn'), // Reference to the new button
         };
         
         // --- AUTHENTICATION LOGIC ---
@@ -295,14 +292,12 @@
                 ui.authBtn.classList.add('hidden');
                 ui.signOutBtn.classList.remove('hidden');
                 ui.userName.textContent = `Xin chào, ${user.displayName || user.email}`;
-                ui.migrateDataBtn.classList.remove('hidden'); // Show migration button when logged in
-                renderYears(); 
+                renderYears(); // Load data after user is confirmed
             } else {
                 // User is signed out.
                 ui.authBtn.classList.remove('hidden');
                 ui.signOutBtn.classList.add('hidden');
                 ui.userName.textContent = '';
-                ui.migrateDataBtn.classList.add('hidden'); // Hide migration button
                 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng đăng nhập để xem dữ liệu...</td></tr>`;
                 ui.schoolYearSelect.innerHTML = '<option>Vui lòng đăng nhập</option>';
             }
@@ -310,6 +305,8 @@
 
         function handleGoogleSignIn() {
             const provider = new firebase.auth.GoogleAuthProvider();
+            // Add scope for Google Drive
+            provider.addScope('https://www.googleapis.com/auth/drive.file');
             auth.signInWithPopup(provider).catch(error => {
                 console.error("Lỗi đăng nhập Google:", error);
                 alert(`Đăng nhập thất bại: ${error.message}`);
@@ -480,6 +477,7 @@
                            <i data-lucide="download" class="w-4 h-4"></i>
                         </a>
                     `;
+                    // Simple preview for images, others can be downloaded.
                     if (file.type.startsWith('image/')) {
                        li.addEventListener('click', (e) => {
                             if (e.target.closest('.download-btn')) return;
@@ -527,6 +525,7 @@
             ui.docModal.classList.remove('hidden');
         });
         
+        // Modal close buttons
         [ui.closeDocModalBtn, ui.cancelDocModalBtn].forEach(btn => btn.addEventListener('click', () => ui.docModal.classList.add('hidden')));
         ui.closeYearModalBtn.addEventListener('click', () => ui.yearModal.classList.add('hidden'));
         ui.closeViewerBtn.addEventListener('click', () => {
@@ -565,6 +564,7 @@
 
                     const batch = db.batch();
                     yearQuery.forEach(doc => batch.delete(doc.ref));
+                    // Also delete associated files in storage
                     for(const doc of docQuery.docs) {
                         const docData = doc.data();
                         if(docData.files && docData.files.length > 0) {
@@ -635,6 +635,7 @@
             }
         });
         
+        // Filters
         [ui.schoolYearSelect, ui.searchInput, ui.docTypeFilter, ui.docMonthFilter].forEach(el => {
             const eventType = el.tagName === 'INPUT' ? 'input' : 'change';
             el.addEventListener(eventType, renderDocuments);
@@ -735,66 +736,6 @@
             return fileData;
         }
 
-        // --- ONE-TIME DATA MIGRATION SCRIPT ---
-        ui.migrateDataBtn.addEventListener('click', async () => {
-            // !!! QUAN TRỌNG: Thay thế các giá trị dưới đây bằng ID của bạn !!!
-            const OLD_USER_ID = "116487284212009252227"; // Thay bằng ID cũ (chuỗi số dài)
-            const NEW_USER_ID = "CEqlPti2KCPEdJ5Uryl6dk0E25r2"; // Thay bằng ID mới (User UID)
-
-            if (OLD_USER_ID === "PUT_YOUR_OLD_ID_HERE" || NEW_USER_ID === "PUT_YOUR_NEW_UID_HERE") {
-                alert("Vui lòng mở file index.html và điền ID cũ và ID mới của bạn vào trong đoạn mã 'MIGRATION SCRIPT' trước!");
-                return;
-            }
-
-            if (!confirm("Bạn có chắc chắn muốn di chuyển dữ liệu cũ sang tài khoản mới? Việc này chỉ nên thực hiện MỘT LẦN DUY NHẤT.")) {
-                return;
-            }
-
-            ui.migrateDataBtn.disabled = true;
-            ui.migrateDataBtn.textContent = "Đang di chuyển...";
-
-            try {
-                const oldUserRef = db.collection('users').doc(OLD_USER_ID);
-                const newUserRef = db.collection('users').doc(NEW_USER_ID);
-                const batch = db.batch();
-
-                // Di chuyển 'schoolYears'
-                console.log("Bắt đầu di chuyển 'schoolYears'...");
-                const oldYearsSnapshot = await oldUserRef.collection('schoolYears').get();
-                let yearCount = 0;
-                oldYearsSnapshot.forEach(doc => {
-                    const newYearRef = newUserRef.collection('schoolYears').doc(doc.id);
-                    batch.set(newYearRef, doc.data());
-                    yearCount++;
-                });
-                console.log(`Tìm thấy ${yearCount} năm học để di chuyển.`);
-
-                // Di chuyển 'documents'
-                console.log("Bắt đầu di chuyển 'documents'...");
-                const oldDocsSnapshot = await oldUserRef.collection('documents').get();
-                let docCount = 0;
-                oldDocsSnapshot.forEach(doc => {
-                    const newDocRef = newUserRef.collection('documents').doc(doc.id);
-                    batch.set(newDocRef, doc.data());
-                    docCount++;
-                });
-                console.log(`Tìm thấy ${docCount} văn bản để di chuyển.`);
-
-                await batch.commit();
-
-                alert(`Di chuyển thành công! Đã chuyển ${yearCount} năm học và ${docCount} văn bản. Vui lòng tải lại trang để xem dữ liệu.`);
-                ui.migrateDataBtn.textContent = "Hoàn tất Di chuyển!";
-                ui.migrateDataBtn.classList.add("bg-green-500", "hover:bg-green-600");
-                ui.migrateDataBtn.classList.remove("bg-orange-500", "hover:bg-orange-600");
-
-            } catch (error) {
-                console.error("Di chuyển thất bại:", error);
-                alert("Đã xảy ra lỗi khi di chuyển. Vui lòng kiểm tra Console (F12) để biết chi tiết.");
-                ui.migrateDataBtn.textContent = "Di chuyển Thất bại!";
-                ui.migrateDataBtn.disabled = false;
-            }
-        });
-
         // --- INITIAL LOAD ---
         populateDocTypeFilter();
         populateMonthFilter();
@@ -813,5 +754,3 @@
     </script>
 </body>
 </html>
-
-
