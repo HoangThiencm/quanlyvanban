@@ -39,14 +39,12 @@
             cursor: not-allowed;
         }
     </style>
-    <!-- Thư viện Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
     <div id="app" class="flex flex-col min-h-screen">
-        <!-- Header -->
         <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
@@ -74,11 +72,9 @@
             </div>
         </header>
 
-        <!-- Main content -->
         <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                 <!-- Controls -->
-                <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
+                 <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
                     <div class="w-full md:w-auto flex-grow flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
                         <div class="w-full sm:w-auto flex items-center space-x-2">
                             <select id="school-year-select" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
@@ -88,13 +84,11 @@
                         </div>
                         <div class="w-full sm:w-40">
                              <select id="doc-month-filter" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
-                                <!-- Month options will be added by JS -->
-                            </select>
+                                </select>
                         </div>
                         <div class="w-full sm:w-40">
                             <select id="doc-type-filter" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
-                                <!-- Type options will be added by JS -->
-                            </select>
+                                </select>
                         </div>
                         <div class="relative w-full flex-grow">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -108,7 +102,6 @@
                         Thêm Văn bản Mới
                     </button>
                 </div>
-                <!-- Table -->
                 <div class="overflow-x-auto relative">
                     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-400">
@@ -129,7 +122,6 @@
         </main>
     </div>
     
-    <!-- Modal Thêm/Sửa Văn bản -->
     <div id="document-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4">
             <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
@@ -179,7 +171,6 @@
         </div>
     </div>
 
-    <!-- Modal Quản lý Năm học -->
     <div id="school-year-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
              <div class="flex justify-between items-center p-5 border-b dark:border-gray-700">
@@ -199,7 +190,6 @@
         </div>
     </div>
     
-    <!-- MODAL MỚI: TRÌNH XEM FILE -->
     <div id="file-viewer-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl h-[90vh] mx-4 flex flex-col">
             <div class="flex justify-between items-center p-4 border-b dark:border-gray-700 flex-shrink-0">
@@ -207,14 +197,11 @@
                 <button id="close-viewer-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="flex flex-grow overflow-hidden">
-                <!-- Danh sách file -->
                 <div class="w-1/4 p-4 border-r dark:border-gray-700 overflow-y-auto">
                     <h4 class="text-sm font-semibold mb-3">Danh sách tệp</h4>
                     <ul id="file-list" class="space-y-2">
-                        <!-- File items will be injected here -->
-                    </ul>
+                        </ul>
                 </div>
-                <!-- Khung xem file -->
                 <div class="w-3/4 p-4 flex flex-col">
                     <div id="viewer-placeholder" class="flex-grow flex items-center justify-center text-gray-500">
                         <p>Chọn một tệp từ danh sách để xem trước.</p>
@@ -247,6 +234,7 @@
         const GAPI_SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file';
         const REDIRECT_URI = `${window.location.origin}/popup.html`;
         let googleAuthToken = null;
+        let refreshTimer = null; // Biến cho bộ đếm thời gian làm mới token
         
         const ui = {
             authBtn: document.getElementById('authorize_button'),
@@ -331,6 +319,7 @@
                 }).finally(() => {
                     googleAuthToken = null;
                     localStorage.removeItem('google_auth_token_v3');
+                    if (refreshTimer) clearTimeout(refreshTimer); // Hủy lịch làm mới
                     updateAuthUI(false);
                 });
             }
@@ -342,6 +331,7 @@
                 googleAuthToken = JSON.parse(storedToken);
                 updateAuthUI(true);
                 getUserProfile();
+                scheduleSilentRefresh(); // <-- THÊM MỚI: Lên lịch làm mới khi tải trang
             } else {
                 updateAuthUI(false);
             }
@@ -353,14 +343,85 @@
                 const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
                 const token = Object.fromEntries(params.entries());
                 if (token.access_token) {
+                    // CẬP NHẬT: Tính toán và lưu thời điểm hết hạn
+                    const expiresAt = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000; // Trừ 5 phút an toàn
+                    token.expires_at = expiresAt;
                     googleAuthToken = token;
                     localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
                     updateAuthUI(true);
                     getUserProfile();
+                    scheduleSilentRefresh(); // <-- THÊM MỚI: Lên lịch làm mới ngay sau khi nhận token
                 }
              }
         });
 
+        // --- CÁC HÀM LÀM MỚI TOKEN ÂM THẦM ---
+        function scheduleSilentRefresh() {
+            if (!googleAuthToken?.expires_at) return;
+            if (refreshTimer) clearTimeout(refreshTimer);
+            
+            const msUntilExpiry = googleAuthToken.expires_at - Date.now();
+            if (msUntilExpiry <= 0) {
+                // Nếu token đã hết hạn, thử làm mới ngay
+                silentRefresh();
+                return;
+            }
+
+            // Lên lịch chạy trước khi hết hạn
+            const refreshTime = Math.max(0, msUntilExpiry);
+            refreshTimer = setTimeout(() => silentRefresh(), refreshTime);
+        }
+
+        function silentRefresh() {
+            console.log("Attempting silent token refresh...");
+            const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+            const params = {
+                client_id: GAPI_CLIENT_ID,
+                redirect_uri: REDIRECT_URI,
+                response_type: 'token',
+                scope: GAPI_SCOPES,
+                include_granted_scopes: 'true',
+                prompt: 'none' // Quan trọng: không hiện UI
+            };
+            const url = `${oauth2Endpoint}?${new URLSearchParams(params).toString()}`;
+
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url;
+            document.body.appendChild(iframe);
+
+            const onMsg = (event) => {
+                if (event.origin !== window.location.origin || event.source !== iframe.contentWindow) return;
+                
+                if (event.data?.type === 'oauth_callback') {
+                    const params = new URLSearchParams(event.data.payload.hash.replace(/^#/, ''));
+                    const token = Object.fromEntries(params.entries());
+                    if (token.access_token) {
+                        console.log("Silent refresh successful!");
+                        token.expires_at = Date.now() + (parseInt(token.expires_in || "3600", 10) - 300) * 1000;
+                        googleAuthToken = token;
+                        localStorage.setItem('google_auth_token_v3', JSON.stringify(token));
+                        scheduleSilentRefresh();
+                    } else {
+                        console.log("Silent refresh responded but no token found.");
+                    }
+                    cleanup();
+                }
+            };
+
+            const timeout = setTimeout(() => {
+                console.log("Silent refresh timed out.");
+                cleanup(); // Bỏ qua nếu không gia hạn được
+            }, 15000);
+
+            function cleanup() {
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timeout);
+                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            }
+            window.addEventListener('message', onMsg);
+        }
+        
         // --- LOGIC DỮ LIỆU VỚI FIRESTORE ---
         function getCollectionRef(collectionName) {
             if (!currentUserProfile) return null;
@@ -556,13 +617,6 @@
             const [year, month, day] = dateString.split('-');
             return `${day}/${month}/${year}`;
         }
-
-        function slugify(text) {
-            const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;';
-            const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------';
-            const p = new RegExp(a.split('').join('|'), 'g');
-            return text.toString().toLowerCase().replace(/\s+/g, '-').replace(p, c => b.charAt(a.indexOf(c))).replace(/&/g, '-and-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
-        }
         
         function convertToUnaccented(text) {
             text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -751,6 +805,19 @@
         // --- GOOGLE DRIVE API LOGIC ---
         const uploadManager = {
             async apiCall(path, method = 'POST', body = null, headers = {}) {
+                if (!googleAuthToken || !googleAuthToken.access_token) {
+                    throw new Error("Người dùng chưa xác thực hoặc token không hợp lệ.");
+                }
+                // Thêm kiểm tra token hết hạn ở đây nếu muốn chặt chẽ hơn
+                if (googleAuthToken.expires_at && Date.now() > googleAuthToken.expires_at) {
+                    console.log("Token expired, attempting silent refresh before API call.");
+                    // Chờ silent refresh hoàn tất
+                    await silentRefresh();
+                    if (!googleAuthToken || Date.now() > googleAuthToken.expires_at) {
+                         throw new Error("Không thể làm mới token. Vui lòng đăng nhập lại.");
+                    }
+                }
+                
                 const defaultHeaders = { 'Authorization': `Bearer ${googleAuthToken.access_token}`};
                 const url = path.startsWith('https://') ? path : `https://www.googleapis.com/${path}`;
                 const response = await fetch(url, {
@@ -779,25 +846,31 @@
             },
             async uploadFile(file, parentId) {
                 const metadata = { name: file.name, parents: [parentId] };
-                const fileMetadataResponse = await this.apiCall('https://www.googleapis.com/drive/v3/files', 'POST', JSON.stringify(metadata), { 'Content-Type': 'application/json' });
-                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileMetadataResponse.id}?uploadType=media`;
-                await this.apiCall(uploadUrl, 'PATCH', file, { 'Content-Type': file.type || 'application/octet-stream' });
+                const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`;
+                
+                const initialResponse = await this.apiCall(uploadUrl, 'POST', JSON.stringify(metadata), { 
+                    'Content-Type': 'application/json; charset=UTF-8'
+                });
+
+                const locationUrl = initialResponse.headers.get('Location');
+
+                await fetch(locationUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Range': `bytes 0-${file.size - 1}/${file.size}`},
+                    body: file
+                });
             },
             async startUpload() {
                 const docName = document.getElementById('doc-name').value.trim();
                 const schoolYear = ui.schoolYearSelect.value;
-                const currentMonth = `Tháng ${String(new Date().getMonth() + 1).padStart(2, '0')}`;
                 
                 const unaccentedDocName = convertToUnaccented(docName);
                 const unaccentedSchoolYear = convertToUnaccented(schoolYear);
-                const unaccentedMonth = convertToUnaccented(currentMonth);
-
                 const docFolderName = unaccentedDocName + ' - ' + Date.now();
 
                 const qlvbFolder = await this.findOrCreateFolder('QLVB-DATA');
                 const yearFolder = await this.findOrCreateFolder(unaccentedSchoolYear, qlvbFolder.id);
-                const monthFolder = await this.findOrCreateFolder(unaccentedMonth, yearFolder.id);
-                const docFolder = await this.findOrCreateFolder(docFolderName, monthFolder.id);
+                const docFolder = await this.findOrCreateFolder(docFolderName, yearFolder.id);
                 
                 const filesToUpload = ui.fileInput.files;
                 for (const file of filesToUpload) {
@@ -819,6 +892,7 @@
         populateDocTypeFilter();
         populateMonthFilter();
         checkTokenOnLoad();
+        lucide.createIcons();
     });
     </script>
 </body>
