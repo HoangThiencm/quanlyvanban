@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Văn bản Nội bộ</title>
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,13 +36,13 @@
         .table-row-group {
              cursor: pointer;
         }
-        /* Style cho các nút bị vô hiệu hóa */
+        /* Style for disabled buttons */
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
     </style>
-    <!-- Thư viện Firebase -->
+    <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
@@ -81,17 +84,17 @@
                 <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
                     <div class="w-full md:w-auto flex-grow flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
                         <div class="w-full sm:w-auto flex items-center space-x-2">
-                            <select id="school-year-select" class="w-full sm:w-60 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
+                            <select id="school-year-select" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></select>
                             <button id="manage-years-btn" title="Quản lý năm học" class="p-2.5 text-gray-500 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-600 flex-shrink-0">
                                 <i data-lucide="settings-2" class="w-5 h-5"></i>
                             </button>
                         </div>
-                        <div class="w-full sm:w-60">
+                        <div class="w-full sm:w-40">
                              <select id="doc-month-filter" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
                                 <!-- Month options will be added by JS -->
                             </select>
                         </div>
-                        <div class="w-full sm:w-60">
+                        <div class="w-full sm:w-40">
                             <select id="doc-type-filter" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
                                 <!-- Type options will be added by JS -->
                             </select>
@@ -444,18 +447,14 @@
             if (selectedType !== 'all') {
                 query = query.where('type', '==', selectedType);
             }
-            // Logic lọc theo tháng đã được gỡ bỏ khỏi query Firestore
+            if (selectedMonth !== 'all') {
+                query = query.where('month', '==', selectedMonth);
+            }
             query = query.orderBy('createdAt', 'desc');
             
             unsubscribeDocuments = query.onSnapshot(snapshot => {
                 let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
 
-                // Lọc theo tháng phía client
-                if (selectedMonth !== 'all') {
-                    docs = docs.filter(doc => doc.date && doc.date.substring(5, 7) === selectedMonth);
-                }
-
-                // Lọc theo từ khóa tìm kiếm
                 if (searchTerm) {
                     docs = docs.filter(doc => 
                         (doc.name && doc.name.toLowerCase().includes(searchTerm)) || 
@@ -823,6 +822,17 @@
         populateDocTypeFilter();
         populateMonthFilter();
         checkTokenOnLoad();
+        
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
     });
     </script>
 </body>
