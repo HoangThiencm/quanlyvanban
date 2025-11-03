@@ -427,7 +427,10 @@
 				
 				yearsRef.orderBy('name', 'desc').onSnapshot(snapshot => {
 					const years = snapshot.docs.map(doc => doc.data().name);
-					if (years.length === 0 && !snapshot.metadata.hasPendingWrites) {
+					
+                    // --- SỬA LỖI LOGIC: Bắt đầu ---
+                    // Khi không có năm học nào, tạo năm học mặc định
+                    if (years.length === 0 && !snapshot.metadata.hasPendingWrites) {
 						const defaultYears = ["Năm học 2025-2026", "Năm học 2024-2025"];
 						const batch = db.batch();
 						defaultYears.forEach(year => {
@@ -435,21 +438,39 @@
 							batch.set(docRef, { name: year });
 						});
 						batch.commit();
-						return;
+						// !!ĐÃ XÓA BỎ 'return;' ở đây.
+                        // Việc xóa 'return' cho phép code tiếp tục chạy xuống dưới
+                        // để render danh sách (dù là trống) và gọi renderDocuments()
+                        // nhằm xóa thông báo "Vui lòng đăng nhập...".
 					}
+                    // --- SỬA LỖI LOGIC: Kết thúc ---
+
 					const currentYear = ui.schoolYearSelect.value;
 					ui.schoolYearSelect.innerHTML = '';
 					ui.yearList.innerHTML = '';
-					years.forEach(year => {
-						ui.schoolYearSelect.add(new Option(year, year));
-						ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
-					});
+
+                    if (years.length === 0) {
+                        ui.schoolYearSelect.innerHTML = '<option>Chưa có năm học</option>';
+                    } else {
+                        years.forEach(year => {
+                            ui.schoolYearSelect.add(new Option(year, year));
+                            ui.yearList.innerHTML += `<li class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md"><span class="text-sm">${year}</span><button data-year="${year}" class="delete-year-btn p-1 text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="w-4 h-4"></i></button></li>`;
+                        });
+                    }
+
 					if (currentYear && years.includes(currentYear)) {
 						ui.schoolYearSelect.value = currentYear;
 					}
 					lucide.createIcons();
-					renderDocuments();
-				});
+					renderDocuments(); // Gọi renderDocuments để cập nhật bảng
+				
+                // --- THÊM XỬ LÝ LỖI: Bắt đầu ---
+                }, error => {
+                    console.error("Lỗi khi tải năm học (schoolYears): ", error);
+                    ui.schoolYearSelect.innerHTML = '<option>Lỗi tải năm học</option>';
+                    ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Không thể tải danh sách năm học. Vui lòng kiểm tra Firestore Rules hoặc Console (F12).</td></tr>`;
+                // --- THÊM XỬ LÝ LỖI: Kết thúc ---
+                });
 			}
 			
 			function populateDocTypeFilter() {
@@ -473,8 +494,10 @@
 				const selectedType = ui.docTypeFilter.value;
 				const selectedMonth = ui.docMonthFilter.value;
 				const searchTerm = ui.searchInput.value.toLowerCase();
-				if (!selectedYear) {
-					 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng tạo năm học trước...</td></tr>`;
+                
+                // Cập nhật: Kiểm tra nếu không có năm học được chọn (ví dụ: 'Chưa có năm học')
+				if (!selectedYear || selectedYear === 'Chưa có năm học') {
+					 ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">Vui lòng chọn (hoặc tạo) năm học để xem văn bản...</td></tr>`;
 					return;
 				}
 				let query = docsRef.where('schoolYear', '==', selectedYear);
@@ -519,8 +542,8 @@
 					}).join('');
 					lucide.createIcons();
 				}, error => {
-					console.error("Firestore Error: ", error);
-					ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Đã xảy ra lỗi. Vui lòng kiểm tra Console (F12) để tạo Index cần thiết.</td></tr>`;
+					console.error("Lỗi khi tải văn bản (documents): ", error);
+					ui.docTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500">Đã xảy ra lỗi khi tải văn bản. Vui lòng kiểm tra Console (F12) để tạo Index cần thiết.</td></tr>`;
 				});
 			}
 			
@@ -809,4 +832,3 @@
 	</script>
 </body>
 </html>
-
