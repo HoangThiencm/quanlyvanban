@@ -444,9 +444,10 @@
 				let query = docsRef.where('schoolYear', '==', selectedYear);
 				if (selectedType !== 'all') query = query.where('type', '==', selectedType);
 				if (selectedMonth !== 'all') query = query.where('month', '==', selectedMonth);
-				query = query.orderBy('createdAt', 'desc');
+				// query = query.orderBy('createdAt', 'desc'); // TẠM THỜI TẮT SẮP XẾP ĐỂ GỠ LỖI INDEX
 				
 				unsubscribeDocuments = query.onSnapshot(snapshot => {
+                    console.log(`Tìm thấy ${snapshot.docs.length} văn bản cho năm học '${selectedYear}'`); // Thêm log để gỡ lỗi
 					let docs = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
 					if (searchTerm) {
 						docs = docs.filter(doc => (doc.name && doc.name.toLowerCase().includes(searchTerm)) || (doc.id && doc.id.toLowerCase().includes(searchTerm)));
@@ -788,4 +789,5 @@
 	</script>
 </body>
 </html>
+
 
